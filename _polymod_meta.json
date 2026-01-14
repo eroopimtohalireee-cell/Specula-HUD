@@ -1,0 +1,17 @@
+{
+  "title": "Specula HUD",
+  "description": "Specula HUD is a V-Slice HUD mod made by NightCypher303. It features a score bar (displayed above the health bar showing your score, combo, max combo, accuracy, and health), a judgement counter (showing Sicks, Goods, Bads, Shits, and Misses), and a watermark. Enjoy the mod!",
+  "url": "https://gamebanana.com/mods/634902",
+
+  "contributors": [
+    {
+      "name": "NightCypher303",
+      "role": "Creator of Specula HUD, and a slacker",
+      "url": "https://gamebanana.com/members/4972004"
+    }
+  ],
+
+  "api_version": "0.8.1",
+  "mod_version": "0.5.0",
+  "license": "CC-BY-ND-4.0"
+}
