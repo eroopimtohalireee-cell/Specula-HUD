@@ -1,0 +1,255 @@
+import funkin.modding.events.StateChangeScriptEvent;
+import funkin.modding.module.Module;
+import funkin.Paths;
+import funkin.play.PlayState;
+import funkin.ui.options.ModMenu;
+import funkin.ui.options.OptionsState;
+import funkin.ui.options.PreferencesMenu;
+
+import flixel.FlxG;
+import flixel.FlxSprite;
+
+import Reflect;
+import Std;
+
+class SpeculaJudgmentOptions extends Module
+{
+    public function new()
+    {
+        super("SpeculaJudgmentOptions", 35);
+
+        try {
+            if (FlxG.save.data.SpeculaJudgmentOptions != null) {
+                var s = FlxG.save.data.SpeculaJudgmentOptions;
+                if (s.judgmentShow == null) s.judgmentShow = true;
+                if (s.judgmentColor == null) s.judgmentColor = "Black";
+                if (s.judgmentOpacity == null) s.judgmentOpacity = 50;
+                if (s.judgmentCornerRadius == null) s.judgmentCornerRadius = 15;
+                if (s.judgmentFont == null) s.judgmentFont = "Roboto-Bold";
+                if (s.judgmentPosition == null) s.judgmentPosition = "Left";
+                if (s.judgmentTextSize == null) s.judgmentTextSize = "Medium";
+
+                if (s.judgmentLabelSick == null) s.judgmentLabelSick = "Sick!!";
+                if (s.judgmentLabelGood == null) s.judgmentLabelGood = "Good!";
+                if (s.judgmentLabelBad == null) s.judgmentLabelBad = "Bad";
+                if (s.judgmentLabelShit == null) s.judgmentLabelShit = "Shit";
+                if (s.judgmentLabelMiss == null) s.judgmentLabelMiss = "Misses";
+
+                if (s.judgmentBop == null) s.judgmentBop = true;
+                if (s.judgmentBopIntensity == null) s.judgmentBopIntensity = 1.0;
+            } else {
+                if (FlxG.save.data.spec_show == null)    FlxG.save.data.spec_show = true;
+                if (FlxG.save.data.spec_color == null)   FlxG.save.data.spec_color = "Black";
+                if (FlxG.save.data.spec_opacity == null) FlxG.save.data.spec_opacity = 50;
+                if (FlxG.save.data.spec_corner == null)  FlxG.save.data.spec_corner = 15;
+                if (FlxG.save.data.spec_font == null)    FlxG.save.data.spec_font = "Roboto-Bold";
+                if (FlxG.save.data.spec_pos == null)     FlxG.save.data.spec_pos = "Left";
+                if (FlxG.save.data.spec_size == null)    FlxG.save.data.spec_size = "Medium";
+
+                if (FlxG.save.data.spec_sick == null)    FlxG.save.data.spec_sick = "Sick!!";
+                if (FlxG.save.data.spec_good == null)    FlxG.save.data.spec_good = "Good!";
+                if (FlxG.save.data.spec_bad == null)     FlxG.save.data.spec_bad = "Bad";
+                if (FlxG.save.data.spec_shit == null)    FlxG.save.data.spec_shit = "Shit";
+                if (FlxG.save.data.spec_miss == null)    FlxG.save.data.spec_miss = "Misses";
+
+                if (FlxG.save.data.spec_judgment_bop == null) FlxG.save.data.spec_judgment_bop = true;
+                if (FlxG.save.data.spec_judgment_bop_intensity == null) FlxG.save.data.spec_judgment_bop_intensity = 1.0;
+            }
+        } catch (_:Dynamic) {}
+
+        FlxG.save.flush();
+    }
+
+    function createPrefsHeader(prefs:PreferencesMenu, title:String, desc:String)
+    {
+        prefs.items.createItem(10, (120 * prefs.items.length) + 30, title, "bold", function() {}, true);
+        prefs.preferenceItems.add(new FlxSprite().makeGraphic(0, 0, 0x00000000));
+        prefs.preferenceDesc.push(desc);
+    }
+
+    override function onStateChangeEnd(e:StateChangeScriptEvent)
+    {
+        super.onStateChangeEnd(e);
+        if (!Std.isOfType(e.targetState, OptionsState)) return;
+
+        var prefs:PreferencesMenu = e.targetState.optionsCodex.pages.get("preferences");
+        if (prefs == null) return;
+
+        createPrefsHeader(prefs, "- Judgment Counter -", "Customize the judgment counter.");
+
+        function readPref(key:String, fallback:Dynamic):Dynamic
+        {
+            try {
+                var s = FlxG.save.data.SpeculaScoreBarOptions;
+                if (s != null) {
+                    switch (key) {
+                        case "judgmentShow": if (s.judgmentShow != null) return (s.judgmentShow == true);
+                        case "judgmentColor": if (s.judgmentColor != null) return Std.string(s.judgmentColor);
+                        case "judgmentOpacity": if (s.judgmentOpacity != null) return Std.int(s.judgmentOpacity);
+                        case "judgmentCornerRadius": if (s.judgmentCornerRadius != null) return Std.int(s.judgmentCornerRadius);
+                        case "judgmentFont": if (s.judgmentFont != null) return Std.string(s.judgmentFont);
+                        case "judgmentTextSize": if (s.judgmentTextSize != null) return Std.string(s.judgmentTextSize);
+                        case "judgmentPosition": if (s.judgmentPosition != null) return Std.string(s.judgmentPosition);
+                        case "judgmentBop": if (s.judgmentBop != null) return (s.judgmentBop == true);
+                        case "judgmentBopIntensity": if (s.judgmentBopIntensity != null) return Std.parseFloat(Std.string(s.judgmentBopIntensity));
+                    }
+                }
+            } catch (_:Dynamic) {}
+
+            switch (key)
+            {
+                case "judgmentShow": return FlxG.save.data.spec_show == true;
+                case "judgmentColor": return FlxG.save.data.spec_color ?? fallback;
+                case "judgmentOpacity": return FlxG.save.data.spec_opacity ?? fallback;
+                case "judgmentCornerRadius": return FlxG.save.data.spec_corner ?? fallback;
+                case "judgmentFont": return FlxG.save.data.spec_font ?? fallback;
+                case "judgmentTextSize": return FlxG.save.data.spec_size ?? fallback;
+                case "judgmentPosition": return FlxG.save.data.spec_pos ?? fallback;
+                case "judgmentBop": return FlxG.save.data.spec_judgment_bop == true;
+                case "judgmentBopIntensity": return FlxG.save.data.spec_judgment_bop_intensity ?? fallback;
+                default: return fallback;
+            }
+        }
+
+        function writePref(key:String, value:Dynamic):Void
+        {
+            try {
+                var s = FlxG.save.data.SpeculaScoreBarOptions;
+                if (s != null) {
+                    switch (key) {
+                        case "judgmentShow": s.judgmentShow = value; break;
+                        case "judgmentColor": s.judgmentColor = value; break;
+                        case "judgmentOpacity": s.judgmentOpacity = Std.int(value); break;
+                        case "judgmentCornerRadius": s.judgmentCornerRadius = Std.int(value); break;
+                        case "judgmentFont": s.judgmentFont = value; break;
+                        case "judgmentTextSize": s.judgmentTextSize = value; break;
+                        case "judgmentPosition": s.judgmentPosition = value; break;
+                        case "judgmentBop": s.judgmentBop = value; break;
+                        case "judgmentBopIntensity": s.judgmentBopIntensity = Std.parseFloat(Std.string(value)); break;
+                        default: break;
+                    }
+                    FlxG.save.flush();
+                    return;
+                }
+            } catch (_:Dynamic) {}
+
+            switch (key)
+            {
+                case "judgmentShow": FlxG.save.data.spec_show = value;
+                case "judgmentColor": FlxG.save.data.spec_color = value;
+                case "judgmentOpacity": FlxG.save.data.spec_opacity = Std.int(value);
+                case "judgmentCornerRadius": FlxG.save.data.spec_corner = Std.int(value);
+                case "judgmentFont": FlxG.save.data.spec_font = value;
+                case "judgmentTextSize": FlxG.save.data.spec_size = value;
+                case "judgmentPosition": FlxG.save.data.spec_pos = value;
+                case "judgmentBop": FlxG.save.data.spec_judgment_bop = value;
+                case "judgmentBopIntensity": FlxG.save.data.spec_judgment_bop_intensity = Std.parseFloat(Std.string(value));
+            }
+
+            FlxG.save.flush();
+        }
+
+        prefs.createPrefItemCheckbox(
+            "Show Judgment Counter?",
+            "Displays the judgment counter during songs.",
+            function(v:Bool) writePref("judgmentShow", v),
+            readPref("judgmentShow", true)
+        );
+
+        prefs.createPrefItemEnum(
+            "Background Color",
+            "Choose a background color.",
+            [
+                "Black" => "Black", "Blue" => "Blue", "Purple" => "Purple",
+                "Gold" => "Gold", "White" => "White", "Orange" => "Orange",
+                "Red" => "Red", "Green" => "Green", "Pink" => "Pink",
+                "Brown" => "Brown", "Cyan" => "Cyan", "Magenta" => "Magenta",
+                "Lime" => "Lime", "Teal" => "Teal", "Violet" => "Violet",
+                "Gray" => "Gray", "Dark Blue" => "Dark Blue", "Crimson" => "Crimson",
+                "Yellow" => "Yellow", "Mint" => "Mint",
+                "Midnight" => "Midnight", "Rose" => "Rose",
+                "Aqua" => "Aqua", "Lavender" => "Lavender", "Sunset" => "Sunset"
+            ],
+            function(value:String) writePref("judgmentColor", value),
+            readPref("judgmentColor", "Black")
+        );
+
+         // BG Opacity
+        prefs.createPrefItemNumber(
+            "Background Opacity",
+            "Change the opacity of the Background",
+            function(v:Float) {
+                writePref("judgmentOpacity", Std.int(v));
+            },
+            function(v:Float):String return Std.int(v) + "%",
+            readPref("judgmentOpacity", 50),
+            0, 100, 5, 0
+        );
+
+        prefs.createPrefItemNumber(
+            "Corner Radius",
+            "Rounded corner radius for the judgment background [Max = 64px] i recommend 15 - 25 px.",
+            function(v:Float) {
+                writePref("judgmentCornerRadius", Std.int(v));
+            },
+            function(v:Float):String return Std.int(v) + " px",
+            readPref("judgmentCornerRadius", 15),
+            0, 64, 1, 0
+        );
+
+
+        prefs.createPrefItemEnum(
+            "Text Size",
+            "Choose the text size",
+            ["Small" => "Small", "Medium" => "Medium", "Large" => "Large"],
+            function(value:String) writePref("judgmentTextSize", value),
+            readPref("judgmentTextSize", "Medium")
+        );
+
+        // Font
+        prefs.createPrefItemEnum(
+            "Text Font",
+            "Choose the font for judgment labels.",
+            [
+                "Roboto Bold"           => "Roboto-Bold",
+                "Jumps To Winter"       => "Jumps-To-Winter",
+                "KG Perfect Penmanship" => "KG-Perfect-Penmanship",
+                "Little Hope"           => "Little-Hope",
+                "Spicy Sale"            => "Spicy-Sale",
+                "VCR OSD Mono"          => "VCR",
+                "A Typewriter For Me"   => "Typewriter",
+                "DK Crayon Crumble"     => "Crayon",
+                "Phantommuff"           => "Phantommuff",
+                "Lapsus Pro"            => "Lapsus-Pro-Bold"
+            ],
+            function(value:String) writePref("judgmentFont", value),
+            readPref("judgmentFont", "Roboto-Bold")
+        );
+
+        prefs.createPrefItemEnum(
+            "Judgment Position",
+            "Place judgment counter on the Left or Right side.",
+            ["Left" => "Left", "Right" => "Right"],
+            function(value:String) writePref("judgmentPosition", value),
+            readPref("judgmentPosition", "Left")
+        );
+
+        prefs.createPrefItemCheckbox(
+            "Enable Label Bop",
+            "If enabled, judgment labels will bop to the beat of each note hit.",
+            function(v:Bool) writePref("judgmentBop", v),
+            readPref("judgmentBop", true)
+        );
+
+        prefs.createPrefItemNumber(
+            "Label Bop Intensity",
+            "Adjust the intensity of the judgment label bop effect.",
+            function(v:Float) {
+                writePref("judgmentBopIntensity", v);
+            },
+            function(v:Float):String return Std.string(v),
+            readPref("judgmentBopIntensity", 1.0),
+            0.1, 5.0, 0.1, 1
+        );
+    }
+}

@@ -1,0 +1,711 @@
+package module.ui.main;
+
+import funkin.modding.module.Module;
+import funkin.play.PlayState;
+import funkin.Highscore;
+import funkin.save.Save;
+
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.math.FlxMath;
+import flixel.util.FlxSpriteUtil;
+import flixel.util.FlxColor;
+import flixel.util.FlxGradient;
+import flixel.tweens.FlxTween;
+
+import util.SpeculaColorUtil;
+import util.SpeculaGradientUtil;
+import util.SpeculaValueUtil;
+
+import Reflect;
+import Std;
+
+class SpeculaScoreBar extends Module
+{
+    public function new()
+    {
+        super("SpeculaScoreBar", 50);
+    }
+
+    var scoreBG:FlxSprite;
+    var scoreText:FlxText;
+
+    var created:Bool = false;
+    var loaded:Bool = false;
+
+    var lastBGColor:Int = -1;
+    var lastBGRadius:Int = -1;
+    var lastBGAlpha:Float = -1;
+    var lastBGGradient:String = "";
+
+    var prevScore:Int = -1;
+    var prevMisses:Int = -1;
+    var prevAcc:Float = -1;
+    var prevRank:String = "";
+    var prevHealth:Int = -1;
+    var prevCombo:Int = -1;
+    var prevMaxCombo:Int = -1;
+    var prevPosition:String = "";
+    var prevFontId:String = "";
+    var prevTextSize:Int = -1;
+
+    var bopScale:Float = 1.06;
+    var bopDuration:Float = 0.18;
+
+    var healthLerp:Float = 100.0;
+    var prefs:Dynamic;
+
+    static var FORCE_UPDATE:Bool = true;
+
+    function ensureDefaults():Void
+    {
+        var save = Save.instance;
+        if (save == null) return;
+
+        var data:Dynamic = null;
+        try { data = Reflect.field(save, "data"); } catch (_:Dynamic) { data = null; }
+
+        if (data == null)
+        {
+            try
+            {
+                Reflect.setField(save, "data", {});
+                data = Reflect.field(save, "data");
+            }
+            catch (_:Dynamic)
+            {
+                data = null;
+            }
+        }
+
+        if (data == null) return;
+
+        var key = "SpeculaScoreBarOptions";
+        var exists:Bool = false;
+        try { exists = Reflect.hasField(data, key); } catch (_:Dynamic) { exists = false; }
+
+        if (!exists)
+        {
+            var obj = {
+                showScoreBar: true,
+                scoreBarColor: "Black",
+                scoreBarOpacity: 50,
+                scoreBarTextSize: "Medium",
+                scoreBarCornerRadius: 15,
+                scoreBarFont: "RobotoBold",
+                scoreBarPosition: "Top",
+                scoreBarMode: "Full",
+            };
+            try { Reflect.setField(data, key, obj); } catch (_:Dynamic) {}
+        }
+
+        try { if (Reflect.hasField(save, "flush")) Reflect.callMethod(save, Reflect.field(save, "flush"), []); } catch (_:Dynamic) {}
+    }
+
+    function defaultPrefs():Dynamic
+    {
+        return {
+            visible: true,
+            color: "Black",
+            opacity: 50,
+            textsize: "Medium",
+            radius: 15,
+            font: "RobotoBold",
+            position: "Top",
+            mode: "Full"
+        };
+    }
+
+    function readPrefs():Dynamic
+    {
+        var save = Save.instance;
+        if (save == null) return defaultPrefs();
+
+        var data:Dynamic = null;
+        try { data = Reflect.field(save, "data"); } catch (_:Dynamic) {}
+        if (data == null) return defaultPrefs();
+
+        var m:Dynamic = null;
+        try { m = Reflect.field(data, "SpeculaScoreBarOptions"); } catch (_:Dynamic) {}
+        if (m == null) return defaultPrefs();
+
+        var visible:Bool = true;
+        var color:String = "Black";
+        var opacity:Int = 50;
+        var textsize:String = "Medium";
+        var radius:Int = 15;
+        var font:String = "RobotoBold";
+        var position:String = "Top";
+        var mode:String = "Full";
+
+        try { if (Reflect.hasField(m, "showScoreBar")) visible = (m.showScoreBar == true); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarColor")) color = Std.string(m.scoreBarColor); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarOpacity")) { var rawOp = Reflect.field(m, "scoreBarOpacity"); opacity = Std.int(rawOp); if (opacity != 50) {trace("ScoreBar readPrefs: scoreBarOpacity = " + rawOp + " (parsed as " + opacity + ")"); }}} catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarTextSize")) textsize = Std.string(m.scoreBarTextSize); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarCornerRadius")) radius = Std.int(m.scoreBarCornerRadius); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarFont")) font = Std.string(m.scoreBarFont); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarPosition")) position = Std.string(m.scoreBarPosition); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "scoreBarMode")) mode = Std.string(m.scoreBarMode); } catch (_:Dynamic) {}
+
+        if (radius < 0) radius = 0;
+        if (radius > 64) radius = 64;
+
+        return {
+            visible: visible,
+            color: color,
+            opacity: opacity,
+            textsize: textsize,
+            radius: radius,
+            font: font,
+            position: position,
+            mode: mode
+        };
+    }
+
+    function rankLetter(acc:Float):String
+    {
+        if (acc == 100) return "P";
+        if (acc >= 90) return "E";
+        if (acc >= 80) return "G";
+        if (acc >= 60) return "G";
+        return "L";
+    }
+
+    /**
+     * Friendly full text for the rank (used in the UI text).
+     */
+    function rankTextFull(acc:Float):String
+    {
+        if (acc >= 100) return  "Perfect!!!";
+        if (acc >= 90)  return   "Excellent!!";
+        if (acc >= 80)  return   "Great!";
+        if (acc >= 60)  return   "Good";
+        return "Loss";
+    }
+
+    function resolveFontName(id:String):String
+    {
+        if (id == null) return "Roboto-Bold.ttf";
+
+        return switch (id)
+        {
+            case "Roboto-Bold":           "Roboto-Bold.ttf";
+            case "Jumps-To-Winter":       "Jumps To Winter.ttf";
+            case "KG-Perfect-Penmanship": "KGPerfectPenmanship.ttf";
+            case "Little-Hope":           "Little Hope.ttf";
+            case "Spicy-Sale":            "Spicy Sale.ttf";
+            case "VCR":                   "VCR OSD Mono.ttf";
+            case "Typewriter":            "ATypewriterForMe.ttf";
+            case "Crayon":                "DK Crayon Crumble.ttf";
+            case "Phantommuff":           "Phantommuff.ttf";
+            case "Lapsus-Pro-Bold":       "LapsusPro-Bold.otf";
+            default:                      "Roboto-Bold.ttf";
+        }
+    }
+
+    function applyFont(fontId:String, size:Int):Void
+    {
+        if (scoreText == null) return;
+
+        var fontFile = resolveFontName(fontId);
+        var fontArg:Dynamic = null;
+
+        try {
+            fontArg = Paths.font(fontFile);
+        } catch (_:Dynamic) {}
+
+        try
+        {
+            scoreText.setFormat(
+                fontArg,
+                size,
+                FlxColor.BLACK,
+                "center",
+                FlxTextBorderStyle.OUTLINE,
+                FlxColor.WHITE
+            );
+        }
+        catch (_:Dynamic)
+        {
+            // ultra-safe fallback
+            try {
+                scoreText.setFormat(null, size, FlxColor.BLACK, "center");
+            } catch (_:Dynamic) {}
+        }
+    }
+
+    function onNoteHit(event:Dynamic):Void
+    {
+        if (scoreText == null) return;
+
+        var bopEnabled:Bool = true;
+        var intensity:Float = 1.0;
+
+        try
+        {
+            var save = Save.instance;
+            if (save != null)
+            {
+                var data = Reflect.field(save, "data");
+                if (data != null)
+                {
+                    var p = Reflect.field(data, "SpeculaScoreBarOptions");
+                    if (p != null)
+                    {
+                        if (Reflect.hasField(p, "scoreBarBop"))
+                            bopEnabled = (p.scoreBarBop == true);
+
+                        if (Reflect.hasField(p, "scoreBarBopIntensity"))
+                            intensity = Std.parseFloat(Std.string(p.scoreBarBopIntensity));
+                    }
+                }
+            }
+        }
+        catch (_:Dynamic) {}
+
+        if (!bopEnabled) return;
+
+        try
+        {
+            if (!event.note.noteData.getMustHitNote())
+                return;
+        }
+        catch (_:Dynamic) {}
+
+        if (intensity < 0.1) intensity = 0.1;
+        if (intensity > 5.0) intensity = 5.0;
+
+        var scale = 1.0 + (intensity * 0.06);
+
+        try { FlxTween.cancelTweensOf(scoreText.scale); } catch (_:Dynamic) {}
+
+        try { scoreText.scale.set(scale, scale); } catch (_:Dynamic) {}
+
+        try
+        {
+            FlxTween.tween(scoreText.scale, { x: 1, y: 1 }, bopDuration);
+        }
+        catch (_:Dynamic) {}
+    }
+
+    function drawRoundedBG(s:FlxSprite, w:Int, h:Int, col:Int, radius:Int, grad:Array<FlxColor> = null):Void
+    {
+        if (s == null) return;
+
+        if (grad != null)
+        {
+            try
+            {
+                var g = FlxGradient.createGradientFlxSprite(w, h, grad, 1, 90, true);
+                s.pixels = g.pixels.clone();
+                s.updateHitbox();
+
+                if (radius > 0)
+                    FlxSpriteUtil.drawRoundRect(s, 0, 0, w, h, radius, radius, 0x00FFFFFF, null, { blend: true });
+            }
+            catch (_:Dynamic) {}
+            return;
+        }
+
+        try { s.makeGraphic(w, h, 0x00000000, true); } catch (_:Dynamic) {}
+        try { FlxSpriteUtil.drawRoundRect(s, 0, 0, w, h, radius, radius, col); } catch (_:Dynamic) {}
+        try { s.updateHitbox(); } catch (_:Dynamic) {}
+    }
+
+    function safeDestroy(obj:Dynamic):Void
+    {
+        if (obj == null) return;
+        try { if (Reflect.hasField(obj, "destroy")) Reflect.callMethod(obj, Reflect.field(obj, "destroy"), []); } catch (_:Dynamic) {}
+    }
+
+    function onCreate(e:Dynamic):Void
+    {
+        ensureDefaults();
+        loaded = false;
+    }
+
+    function onCountdownStart(event:Dynamic):Void
+    {
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        prefs = readPrefs();
+
+        if (!created) createScoreUI(state);
+
+        resetCache();
+        updateScore(FORCE_UPDATE);
+
+        created = true;
+        loaded = true;
+
+        try
+        {
+            if (scoreBG != null)
+            {
+                scoreBG.alpha = SpeculaValueUtil.alphaFromPercent(prefs.opacity);
+            }
+        }
+        catch (_:Dynamic) {}
+
+        try
+        {
+            if (Reflect.hasField(state, "refresh"))
+                Reflect.callMethod(state, Reflect.field(state, "refresh"), []);
+        }
+        catch (_:Dynamic) {}
+    }
+
+
+    function createScoreUI(state:PlayState):Void
+    {
+        if (state == null) return;
+
+        try
+        {
+            var s1 = Reflect.getField(state, "scoreText");
+            if (s1 != null) Reflect.setField(s1, "visible", false);
+        }
+        catch (_:Dynamic) {}
+
+        var prefs = readPrefs();
+        if (prefs == null || (Reflect.hasField(prefs, "visible") && prefs.visible == false))
+        {
+            cleanup();
+            return;
+        }
+
+        var mode:String =
+            (prefs != null && Reflect.hasField(prefs, "mode"))
+                ? Std.string(prefs.mode)
+                : "Full";
+
+        if (mode == "Off")
+        {
+            cleanup();
+            return;
+        }
+
+        var scoreWidth = Std.int(FlxG.width * 0.9);
+        var scoreHeight = 55;
+        var scoreX = Std.int((FlxG.width - scoreWidth) / 2);
+        var scoreY = 20;
+
+        var position:String =
+            (prefs != null && Reflect.hasField(prefs, "position"))
+                ? Std.string(prefs.position)
+                : "Top";
+
+        try
+        {
+            var hb = Reflect.getField(state, "healthBarBG");
+            if (hb != null)
+            {
+                scoreY = (position == "Bottom")
+                    ? Std.int(hb.y + hb.height + 6)
+                    : Std.int(hb.y - scoreHeight - 6);
+            }
+        }
+        catch (_:Dynamic) {}
+
+        if (scoreY < 4) scoreY = 4;
+        if (scoreY + scoreHeight > FlxG.height - 4)
+            scoreY = FlxG.height - scoreHeight - 4;
+
+        var colName:String =
+            (prefs != null && Reflect.hasField(prefs, "color") && prefs.color != null)
+                ? Std.string(prefs.color)
+                : "Black";
+
+        var gradient = SpeculaGradientUtil.resolveGradient(colName);
+        var col:Int = (gradient == null) ? SpeculaColorUtil.resolveColor(colName) : 0xFFFFFFFF;
+
+        var radius:Int =
+            (prefs != null && Reflect.hasField(prefs, "radius"))
+                ? Std.int(prefs.radius)
+                : 15;
+
+        if (mode == "Full")
+        {
+            scoreBG = new FlxSprite(scoreX, scoreY);
+            drawRoundedBG(scoreBG, scoreWidth, scoreHeight, col, radius, gradient);
+
+            try { scoreBG.scrollFactor.set(); } catch (_:Dynamic) {}
+            try { scoreBG.cameras = [Reflect.getField(state, "camHUD")]; } catch (_:Dynamic) {}
+            try { Reflect.setField(scoreBG, "zIndex", 995); } catch (_:Dynamic) {}
+            try { state.add(scoreBG); } catch (_:Dynamic) {}
+
+            var op:Int = 50;
+            try { op = Std.int(prefs.opacity); } catch (_:Dynamic) {}
+            scoreBG.alpha = SpeculaValueUtil.alphaFromPercent(op);
+        }
+        else
+        {
+            scoreBG = null;
+        }
+
+        var txtSize:Int = SpeculaValueUtil.sizeFromName(
+            (prefs != null && Reflect.hasField(prefs, "textsize"))
+                ? Std.string(prefs.textsize)
+                : "Medium",
+            25
+        );
+
+        scoreText = new FlxText(
+            scoreX + 10,
+            scoreY + (mode == "Full" && scoreBG != null
+                ? Std.int((scoreHeight - txtSize) / 2)
+                : 0),
+            scoreWidth - 20,
+            ""
+        );
+
+        var fontId:String =
+            (prefs != null && Reflect.hasField(prefs, "font") && prefs.font != null)
+                ? Std.string(prefs.font)
+                : "RobotoBold";
+
+
+        applyFont(fontId, txtSize);
+        prevFontId = fontId;
+        prevTextSize = txtSize;
+
+        try { scoreText.scrollFactor.set(); } catch (_:Dynamic) {}
+        try { scoreText.cameras = [Reflect.getField(state, "camHUD")]; } catch (_:Dynamic) {}
+        try { Reflect.setField(scoreText, "zIndex", 996); } catch (_:Dynamic) {}
+        try { state.add(scoreText); } catch (_:Dynamic) {}
+    }
+
+    function updateScore(force:Bool):Void
+    {
+        var state = PlayState.instance;
+        if (state == null)
+            return;
+        if (scoreText == null)
+            return;
+
+        var prefs = readPrefs();
+
+        var fontId:String =
+            (prefs != null && Reflect.hasField(prefs, "font"))
+                ? Std.string(prefs.font)
+                : "RobotoBold";
+
+        var txtSize:Int = SpeculaValueUtil.sizeFromName(
+            (prefs != null && Reflect.hasField(prefs, "textsize"))
+                ? Std.string(prefs.textsize)
+                : "Medium",
+            25
+        );
+
+        if (fontId != prevFontId || txtSize != prevTextSize)
+        {
+            applyFont(fontId, txtSize);
+            prevFontId = fontId;
+            prevTextSize = txtSize;
+        }
+
+        var newPos:String = prefs.position;
+
+        var newY:Int = scoreText.y;
+
+        try
+        {
+            var hb = Reflect.getField(state, "healthBarBG");
+            if (hb != null)
+            {
+                newY = (newPos == "Bottom")
+                    ? Std.int(hb.y + hb.height + 6)
+                    : Std.int(hb.y - (scoreBG != null ? scoreBG.height : scoreText.height) - 6);
+            }
+        }
+        catch (_:Dynamic) {}
+
+
+        if (prefs.mode == "Full" && scoreBG != null) {}
+
+        if (scoreBG != null)
+        {
+            scoreBG.y = newY;
+            scoreText.y = newY + Std.int((scoreBG.height - scoreText.size) / 2);
+        }
+        else
+        {
+            scoreText.y = newY;
+        }
+
+
+        if (scoreBG != null && prefs != null)
+        {
+            var colName:String = Std.string(prefs.color);
+            var gradient = SpeculaGradientUtil.resolveGradient(colName);
+            var col:Int = (gradient == null) ? SpeculaColorUtil.resolveColor(colName) : 0xFFFFFFFF;
+            var radius = Std.int(prefs.radius);
+            var opacityValue:Int = 50;
+            try {
+                if (prefs.opacity != null) {
+                    opacityValue = Std.int(prefs.opacity);
+                }
+            } catch (_:Dynamic) {}
+
+            var alpha = SpeculaValueUtil.alphaFromPercent(opacityValue);
+
+            if (alpha != lastBGAlpha) {
+                trace("ScoreBar opacity update: " + opacityValue + "% -> alpha " + alpha);
+            }
+
+            if (col != lastBGColor || radius != lastBGRadius || colName != lastBGGradient)
+            {
+                drawRoundedBG(scoreBG, Std.int(scoreBG.width), Std.int(scoreBG.height), col, radius, gradient );
+
+                lastBGColor = col;
+                lastBGRadius = radius;
+                lastBGGradient = colName;
+            }
+
+            if (alpha != lastBGAlpha)
+            {
+                scoreBG.alpha = alpha;
+                lastBGAlpha = alpha;
+            }
+        }
+
+        var s = 0;
+        try
+        {
+            var ss = Reflect.getField(state, "songScore");
+            if (ss != null) s = Std.parseInt(Std.string(ss));
+        }
+        catch(_ : Dynamic) {}
+
+        var misses = 0;
+        var combo = 0;
+        var maxCombo = 0;
+        var sick = 0;
+        var good = 0;
+        var bad = 0;
+        var shit = 0;
+
+        try
+        {
+            var t = Reflect.getField(Highscore, "tallies");
+            if (t != null)
+            {
+                if (Reflect.hasField(t, "missed")) misses = Std.int(Reflect.getField(t, "missed"));
+                if (Reflect.hasField(t, "combo")) combo = Std.int(Reflect.getField(t, "combo"));
+                if (Reflect.hasField(t, "maxCombo")) maxCombo = Std.int(Reflect.getField(t, "maxCombo"));
+                if (Reflect.hasField(t, "sick")) sick = Std.int(Reflect.getField(t, "sick"));
+                if (Reflect.hasField(t, "good")) good = Std.int(Reflect.getField(t, "good"));
+                if (Reflect.hasField(t, "bad")) bad = Std.int(Reflect.getField(t, "bad"));
+                if (Reflect.hasField(t, "shit")) shit = Std.int(Reflect.getField(t, "shit"));
+            }
+        }
+        catch(_ : Dynamic) {}
+-
+        var healthPercent = 100;
+        try
+        {
+            var hv = Reflect.getField(state, "health");
+            if (hv != null)
+            {
+                var rawHealth:Float = Std.parseFloat(Std.string(hv));
+                healthLerp = FlxMath.lerp(healthLerp, rawHealth, 0.15);
+                healthPercent = Std.int(FlxMath.roundDecimal(healthLerp * 50, 0));
+                if (healthPercent < 0) healthPercent = 0;
+                if (healthPercent > 100) healthPercent = 100;
+            }
+        }
+        catch(_ : Dynamic) {}
+
+        var acc:Float = 100.0;
+        try
+        {
+            var t = Reflect.getField(Highscore, "tallies");
+            if (t != null && Reflect.hasField(t, "totalNotes"))
+            {
+                var total = Std.int(Reflect.field(t, "totalNotes"));
+                if (total > 0)
+                {
+                    acc = ((sick + good - misses) / total) * 100.0;
+                    if (acc < 0) acc = 0;
+                    if (acc > 100) acc = 100;
+                }
+            }
+        }
+        catch (_:Dynamic) {}
+
+        var accRounded = FlxMath.roundDecimal(acc, 2);
+        var rank = rankLetter(acc);
+
+        var shouldUpdate = force
+            || s != prevScore
+            || misses != prevMisses
+            || acc != prevAcc
+            || healthPercent != prevHealth
+            || rank != prevRank
+            || combo != prevCombo
+            || maxCombo != prevMaxCombo
+            || newPos != prevPosition;
+
+        if (shouldUpdate)
+        {
+            prevScore = s;
+            prevMisses = misses;
+            prevAcc = acc;
+            prevHealth = healthPercent;
+            prevRank = rank;
+            prevCombo = combo;
+            prevMaxCombo = maxCombo;
+            prevPosition = newPos;
+
+            var rankFull = rankTextFull(acc);
+            scoreText.text = "Combo: " + combo + "/" + maxCombo + " | Accuracy: " + accRounded + "% - " + rankFull + "| ( HP: " + healthPercent + "% )" + " | (Score: " + s + " )";
+        }
+    }
+
+    function onUpdate(e:Dynamic):Void
+    {
+        if (!loaded) return;
+        updateScore(false);
+    }
+
+    function resetCache():Void
+    {
+        prevScore = -1;
+        prevMisses = -1;
+        prevAcc = -1;
+        prevRank = "";
+        prevHealth = -1;
+        prevCombo = -1;
+        prevMaxCombo = -1;
+        healthLerp = 100.0;
+
+        lastBGColor = -1;
+        lastBGRadius = -1;
+        lastBGAlpha = -1;
+        lastBGGradient = "";
+
+        prevPosition = "";
+        prevFontId = "";
+        prevTextSize = -1;
+
+    }
+
+    function cleanup():Void
+    {
+        safeDestroy(scoreBG);
+        safeDestroy(scoreText);
+
+        scoreBG = null;
+        scoreText = null;
+        created = false;
+        loaded = false;
+    }
+
+    function onDestroy(e:Dynamic):Void
+    {
+        cleanup();
+    }
+}

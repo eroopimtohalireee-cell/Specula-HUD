@@ -1,0 +1,38 @@
+// package util;
+
+// import funkin.modding.module.ScriptedModule;
+// import funkin.Paths;
+
+// class SpeculaFontUtil extends ScriptedModule
+// {
+//     public function new()
+//     {
+//         super("SpeculaFontUtil", -1000);
+//     }
+
+//     /**
+//      * Map a font identifier to the actual font filename used by `Paths.font`.
+//      *
+//      * @param id Font identifier string (e.g. "Roboto-Bold")
+//      * @return Filename of the font to load (string)
+//      */
+//     public static function resolveFont(id:String):String
+//     {
+//         if (id == null) return "Roboto-Bold.ttf";
+
+//         return switch (id)
+//         {
+//             case "Roboto-Bold":           "Roboto-Bold.ttf";
+//             case "Jumps-To-Winter":       "Jumps To Winter.ttf";
+//             case "KG-Perfect-Penmanship": "KGPerfectPenmanship.ttf";
+//             case "Little-Hope":           "Little Hope.ttf";
+//             case "Spicy-Sale":            "Spicy Sale.ttf";
+//             case "VCR":                   "VCR OSD Mono.ttf";
+//             case "Typewriter":            "ATypewriterForMe.ttf";
+//             case "Crayon":                "DK Crayon Crumble.ttf";
+//             case "Phantommuff":           "Phantommuff.ttf";
+//             case "Lapsus-Pro-Bold":       "LapsusPro-Bold.otf";
+//             default:                      "Roboto-Bold.ttf";
+//         }
+//     }
+// }

@@ -1,0 +1,188 @@
+package util;
+
+import funkin.modding.module.ScriptedModule;
+import flixel.FlxG;
+import Reflect;
+import Std;
+
+/**
+ * SpeculaErrorLogger
+ * A utility for logging errors and null checks in the Specula HUD mod.
+ * Helps track down issues by logging when critical objects are null or invalid.
+ */
+class SpeculaErrorLogger extends ScriptedModule
+{
+    public function new()
+    {
+        super("SpeculaErrorLogger", -1000);
+    }
+
+    /**
+     * Check if a value is null and log an error if it is.
+     * Returns true if null, false if valid.
+     * 
+     * @param value The value to check
+     * @param name The name of the variable (for the log message)
+     * @param context Optional context info (like function name)
+     * @return true if null, false if valid
+     */
+    public static function checkNull(value:Dynamic, name:String, context:String = ""):Bool
+    {
+        if (value == null)
+        {
+            var errorMsg = '$name is null';
+            if (context != "" && context != null)
+                errorMsg += ' in $context';
+            
+            logError(errorMsg);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check if a Reflect field exists and is not null.
+     * 
+     * @param obj The object to check
+     * @param fieldName The field name
+     * @param objName The object name (for logging)
+     * @param context Optional context info
+     * @return true if field is null/missing, false if valid
+     */
+    public static function checkField(obj:Dynamic, fieldName:String, objName:String = "object", context:String = ""):Bool
+    {
+        if (obj == null)
+        {
+            logError('Cannot check field "$fieldName" - $objName is null');
+            return true;
+        }
+
+        if (!Reflect.hasField(obj, fieldName))
+        {
+            var errorMsg = 'Field "$fieldName" does not exist on $objName';
+            if (context != "" && context != null)
+                errorMsg += ' in $context';
+            logError(errorMsg);
+            return true;
+        }
+
+        var fieldValue = Reflect.field(obj, fieldName);
+        if (fieldValue == null)
+        {
+            var errorMsg = '$objName.$fieldName is null';
+            if (context != "" && context != null)
+                errorMsg += ' in $context';
+            logError(errorMsg);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Log a custom error message.
+     * Prints to console and optionally to a file.
+     * 
+     * @param message The error message
+     */
+    public static function logError(message:String):Void
+    {
+        if (message == null || message == "")
+            return;
+
+        var timestamp = Std.string(Date.now());
+        var fullMessage = '[$timestamp] SpeculaHUD ERROR: $message';
+
+        // Print to console
+        try
+        {
+            trace(fullMessage);
+        }
+        catch (_:Dynamic) {}
+
+        // Print to FlxG if available
+        try
+        {
+            if (FlxG != null && FlxG.log != null)
+                FlxG.log.error(fullMessage);
+        }
+        catch (_:Dynamic) {}
+    }
+
+    /**
+     * Log a warning message.
+     * 
+     * @param message The warning message
+     */
+    public static function logWarn(message:String):Void
+    {
+        if (message == null || message == "")
+            return;
+
+        var timestamp = Std.string(Date.now());
+        var fullMessage = '[$timestamp] SpeculaHUD WARNING: $message';
+
+        try
+        {
+            trace(fullMessage);
+        }
+        catch (_:Dynamic) {}
+
+        try
+        {
+            if (FlxG != null && FlxG.log != null)
+                FlxG.log.warn(fullMessage);
+        }
+        catch (_:Dynamic) {}
+    }
+
+    /**
+     * Log an info message.
+     * 
+     * @param message The info message
+     */
+    public static function logInfo(message:String):Void
+    {
+        if (message == null || message == "")
+            return;
+
+        var timestamp = Std.string(Date.now());
+        var fullMessage = '[$timestamp] SpeculaHUD INFO: $message';
+
+        try
+        {
+            trace(fullMessage);
+        }
+        catch (_:Dynamic) {}
+
+        try
+        {
+            if (FlxG != null && FlxG.log != null)
+                FlxG.log.add(fullMessage);
+        }
+        catch (_:Dynamic) {}
+    }
+
+    /**
+     * Safe wrapper to call a function with error logging.
+     * If the function throws an error, it logs it.
+     * 
+     * @param fn The function to call
+     * @param fnName The function name (for logging)
+     * @return true if error occurred, false if successful
+     */
+    public static function safeCall(fn:Void->Void, fnName:String = "unknown function"):Bool
+    {
+        try
+        {
+            fn();
+            return false;
+        }
+        catch (e:Dynamic)
+        {
+            var errorMsg = 'Exception in $fnName: ${Std.string(e)}';
+            logError(errorMsg);
+            return true;
+        }
+    }
+}

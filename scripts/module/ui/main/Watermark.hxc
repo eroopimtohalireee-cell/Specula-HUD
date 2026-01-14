@@ -1,0 +1,224 @@
+package speculahud;
+
+import funkin.modding.module.Module;
+import funkin.play.PlayState;
+import funkin.save.Save;
+
+import flixel.FlxG;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import flixel.util.FlxTimer;
+
+class SpeculaWatermarkHUD extends Module
+{
+    public function new()
+    {
+        super("SpeculaWatermarkHUD", 50); // high z-index
+    }
+
+    var txt:FlxText;
+    var created = false;
+    var loaded = false;
+    var fadeTimer:FlxTimer;
+
+    function ensureDefaults()
+    {
+        var save = Save.instance;
+
+        if (FlxG.save.data.SpeculaWatermarkOptions == null)
+        {
+            FlxG.save.data.SpeculaWatermarkOptions = {
+                enabled: true,
+                position: "BottomRight"
+            };
+        }
+
+        var p = FlxG.save.data.SpeculaWatermarkOptions;
+        if (p.enabled == null) p.enabled = true;
+        if (p.position == null) p.position = "BottomRight";
+
+        save.flush();
+    }
+
+
+    function readPrefs()
+    {
+        var p = Save.instance.data.SpeculaWatermarkOptions;
+        if (p == null)
+        {
+            ensureDefaults();
+            p = Save.instance.data.SpeculaWatermarkOptions;
+        }
+
+        return {
+            enabled: p.enabled == true,
+            position: Std.string(p.position)
+        };
+    }
+
+
+    override function onCreate(e)
+    {
+        super.onCreate(e);
+        ensureDefaults();
+        loaded = false;
+    }
+
+    override function onStateChange(e)
+    {
+        super.onStateChange(e);
+        if (e.from == "PlayState") cleanup();
+        if (e.to == "PlayState") loaded = false;
+    }
+
+    override function onCountdownStart(e)
+    {
+        super.onCountdownStart(e);
+
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        if (!created || !loaded)
+        {
+            createWatermark(state);
+            created = true;
+            loaded = true;
+        }
+
+        applyPrefs();
+        positionWatermark();
+        state.refresh();
+    }
+
+    /* ───────────────────────────────────────────── */
+    /*  Create Watermark                             */
+    /* ───────────────────────────────────────────── */
+
+    function createWatermark(state:PlayState)
+    {
+        txt = new FlxText(0, 0, 0, "Specula HUD v0.5.0 (Playable Preview)");
+        txt.setFormat(Paths.font("Phantommuff.ttf"), 15, 0xFFFFFFFF, "center", FlxTextBorderStyle.OUTLINE, 0xFF0000FF);
+        txt.borderSize = 0.32;
+        txt.scrollFactor.set();
+        txt.cameras = [state.camHUD];
+        txt.zIndex = 2000;
+        txt.alpha = 0;
+        state.add(txt);
+
+        // Start the fade cycle
+        startFadeCycle();
+    }
+
+    function startFadeCycle()
+    {
+        if (txt == null) return;
+
+        // Fade in
+        FlxTween.tween(txt, { alpha: 1 }, 1.0, { ease: FlxEase.quadInOut,
+            onComplete: (_) -> {
+                // Hold the text visible
+                fadeTimer = new FlxTimer().start(2.5, (_) -> {
+                    // Fade out
+                    FlxTween.tween(txt, { alpha: 0 }, 1.0, { ease: FlxEase.quadInOut,
+                        onComplete: (_) -> {
+                            // Switch text
+                            switchWatermarkText();
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    function switchWatermarkText()
+    {
+        if (txt == null) return;
+
+        txt.text = "By NightCipher303";
+
+        // Fade in again
+        FlxTween.tween(txt, { alpha: 1 }, 1.0, { ease: FlxEase.quadInOut,
+            onComplete: (_) -> {
+                // Hold visible
+                fadeTimer = new FlxTimer().start(2.5, (_) -> {
+                    // Fade out
+                    FlxTween.tween(txt, { alpha: 0 }, 1.0, { ease: FlxEase.quadInOut,
+                        onComplete: (_) -> {
+                            // Switch back to original text and repeat
+                            txt.text = "Specula HUD v0.5.0 (Playable Preview)";
+                            startFadeCycle();
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    /* ───────────────────────────────────────────── */
+    /*  Apply Preferences                            */
+    /* ───────────────────────────────────────────── */
+
+    function applyPrefs()
+    {
+        var p = readPrefs();
+        if (txt != null)
+            txt.visible = p.enabled;
+    }
+
+    /* ───────────────────────────────────────────── */
+    /*  Positioning                                  */
+    /* ───────────────────────────────────────────── */
+
+    function positionWatermark()
+    {
+        if (txt == null) return;
+
+        var p = readPrefs();
+        if (!p.enabled) return;
+
+        switch (p.position)
+        {
+            case "TopLeft":
+                txt.x = 10;
+                txt.y = 10;
+
+            case "TopRight":
+                txt.x = FlxG.width - txt.width - 10;
+                txt.y = 10;
+
+            case "BottomLeft":
+                txt.x = 10;
+                txt.y = FlxG.height - txt.height - 10;
+
+            case "BottomRight":
+                txt.x = FlxG.width - txt.width - 10;
+                txt.y = FlxG.height - txt.height - 10;
+        }
+    }
+
+    override function onUpdate(e)
+    {
+        super.onUpdate(e);
+        if (!loaded) return;
+        positionWatermark();
+    }
+
+    function cleanup()
+    {
+        if (fadeTimer != null) fadeTimer.destroy();
+        if (txt != null) txt.destroy();
+        txt = null;
+        fadeTimer = null;
+        created = false;
+        loaded = false;
+    }
+
+    override function onDestroy(e)
+    {
+        cleanup();
+        super.onDestroy(e);
+    }
+}
+

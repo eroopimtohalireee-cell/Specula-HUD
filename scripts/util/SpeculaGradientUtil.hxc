@@ -1,0 +1,63 @@
+package util;
+
+import funkin.modding.module.ScriptedModule;
+import flixel.util.FlxColor;
+
+/**
+ * Gradient color helper
+ * Converts friendly names into FlxColor arrays
+ */
+class SpeculaGradientUtil extends ScriptedModule
+{
+    public function new()
+    {
+        super("SpeculaGradientUtil", -1000);
+    }
+
+    /**
+     * Resolve a named gradient to an array of two FlxColor values.
+     *
+     * @param name Friendly gradient name (e.g. "Sunset")
+     * @return Array of two FlxColor values or null when unknown
+     */
+    public static function resolveGradient(name:String):Array<FlxColor>
+    {
+        if (name == null) return null;
+
+        return switch (name)
+        {
+            case "Sunset":
+                [
+                    FlxColor.fromRGB(255, 140, 66),
+                    FlxColor.fromRGB(255, 94, 120)
+                ];
+
+            case "Midnight":
+                [
+                    FlxColor.fromRGB(10, 15, 44),
+                    FlxColor.fromRGB(25, 30, 80)
+                ];
+
+            case "Aqua":
+                [
+                    FlxColor.fromRGB(0, 184, 217),
+                    FlxColor.fromRGB(0, 120, 160)
+                ];
+
+            case "Lavender":
+                [
+                    FlxColor.fromRGB(181, 126, 220),
+                    FlxColor.fromRGB(230, 200, 255)
+                ];
+
+            case "Rose":
+                [
+                    FlxColor.fromRGB(255, 94, 120),
+                    FlxColor.fromRGB(255, 150, 180)
+                ];
+
+            default:
+                null;
+        }
+    }
+}

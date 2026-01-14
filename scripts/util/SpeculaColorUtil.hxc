@@ -1,0 +1,55 @@
+package util;
+
+import funkin.modding.module.ScriptedModule;
+import flixel.util.FlxColor;
+
+class SpeculaColorUtil extends ScriptedModule
+{
+    public function new()
+    {
+        super("SpeculaColorUtil", -1000);
+    }
+
+    /**
+     * Resolve a friendly color name to a FlxColor or ARGB integer.
+     *
+     * @param name Friendly color name (e.g. "Black", "Sunset")
+     * @return FlxColor constant or ARGB int representing the color
+     */
+    public static function resolveColor(name:String):FlxColor
+    {
+        if (name == null) return FlxColor.BLACK;
+
+        return switch (name)
+        {
+            case "Black":   FlxColor.BLACK;
+            case "White":   FlxColor.WHITE;
+            case "Gray":    FlxColor.GRAY;
+
+            case "Red":     FlxColor.RED;
+            case "Orange":  FlxColor.ORANGE;
+            case "Yellow":  FlxColor.YELLOW;
+            case "Green":   FlxColor.GREEN;
+            case "Lime":    FlxColor.LIME;
+            case "Cyan":    FlxColor.CYAN;
+            case "Blue":    FlxColor.BLUE;
+            case "Purple":  FlxColor.PURPLE;
+            case "Magenta": FlxColor.MAGENTA;
+            case "Pink":    FlxColor.PINK;
+            case "Brown":   FlxColor.BROWN;
+
+            case "Gold":     0xFFFFD700;
+            case "Teal":     0xFF008080;
+            case "Violet":   0xFFEE82EE;
+            case "Crimson":  0xFFDC143C;
+            case "Mint":     0xFF3EB489;
+            case "Midnight": 0xFF0A0F2C;
+            case "Rose":     0xFFFF5E78;
+            case "Aqua":     0xFF00B8D9;
+            case "Lavender": 0xFFB57EDC;
+            case "Sunset":   0xFFFF8C42;
+
+            default: FlxColor.BLACK;
+        }
+    }
+}

@@ -1,0 +1,43 @@
+package util;
+
+import funkin.modding.module.ScriptedModule;
+import flixel.math.FlxMath;
+
+class SpeculaValueUtil extends ScriptedModule
+{
+    public function new()
+    {
+        super("SpeculaValueUtil", -1000);
+    }
+
+    /**
+     * Convert a user-friendly size name to an integer font size.
+     *
+     * @param name Size name ("Small", "Medium", "Large")
+     * @param def Fallback integer size when name is null or unknown
+     * @return Integer pixel size for text
+     */
+    public static function sizeFromName(name:String, def:Int = 25):Int
+    {
+        if (name == null) return def;
+
+        return switch (name.toLowerCase())
+        {
+            case "small":  20;
+            case "medium": 25;
+            case "large":  28;
+            default: def;
+        };
+    }
+
+    public static function alphaFromPercent(op:Float):Float
+    {
+        /**
+         * Convert a 0-100 percentage into a 0.0-1.0 alpha value.
+         *
+         * @param op Percentage (0-100)
+         * @return Alpha (0.0-1.0)
+         */
+        return FlxMath.bound(op, 0, 100) * 0.01;
+    }
+}

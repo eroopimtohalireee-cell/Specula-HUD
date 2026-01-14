@@ -1,0 +1,274 @@
+package module.ui.prefs;
+
+import funkin.modding.module.Module;
+import funkin.ui.options.OptionsState;
+import funkin.ui.options.PreferencesMenu;
+import flixel.text.FlxText;
+import flixel.FlxSprite;
+import flixel.FlxG;
+import flixel.util.FlxColor;
+import Std;
+
+class SongIntroPrefs extends Module
+{
+    var preferences:PreferencesMenu;
+
+    public function new()
+    {
+        super("Song Intro Preferences", 20);
+
+        // -------------------------
+        // BASIC TOGGLES
+        // -------------------------
+        if (FlxG.save.data.songIntroEnabled == null)
+            FlxG.save.data.songIntroEnabled = true;
+
+        if (FlxG.save.data.songIntroFadeEnabled == null)
+            FlxG.save.data.songIntroFadeEnabled = true;
+
+        if (FlxG.save.data.showArtist == null)
+            FlxG.save.data.showArtist = true;
+
+        // -------------------------
+        // INTRO OPTIONS OBJECT
+        // -------------------------
+        if (FlxG.save.data.SpeculaSongIntroOptions == null)
+        {
+            FlxG.save.data.SpeculaSongIntroOptions = {
+                showIntro: true,
+                introBGColor: "Black",
+                introBGOpacity: 50,
+                introBGRadius: 15,
+                introPosition: "Center",
+                showArtistName: true,
+                transitionType: "Reveal",
+                slideDirection: "Left"
+            };
+        }
+
+        FlxG.save.flush();
+    }
+
+        /* ───────────────────────────────────────────── */
+    /*  Helper for Section Headers                   */
+    /* ───────────────────────────────────────────── */
+    function createPrefItemHeader(
+        menu:PreferencesMenu,
+        name:String,
+        desc:String,
+        color:FlxColor
+    )
+    {
+        var item = menu.items.createItem(
+            10,
+            (120 * menu.items.length) + 30,
+            name,
+            "bold",
+            function() {},
+            true
+        );
+
+        // Style the text if it exists
+        try {
+            if (Reflect.hasField(item, "text")) {
+                var textField = Reflect.field(item, "text");
+                if (textField != null) {
+                    textField.color = color;
+                }
+            }
+        } catch (_:Dynamic) {}
+
+        menu.preferenceItems.add(new FlxSprite().makeGraphic(1, 1, FlxColor.TRANSPARENT));
+        menu.preferenceDesc.push(desc);
+    }
+
+    /* ───────────────────────────────────────────── */
+    /*  Header for NEW Features (Green, hardcoded)   */
+    /* ───────────────────────────────────────────── */
+    function createPrefItemHeaderNew(menu:PreferencesMenu)
+    {
+        var headerColor = FlxColor.GREEN;
+        var headerText = "NEW!!";
+        var headerDesc = "There's new Preferences! Check them out. But none of them work. Yet.";
+
+        var item = menu.items.createItem(
+            10,
+            (120 * menu.items.length) + 30,
+            headerText,
+            "bold",
+            function() {},
+            true
+        );
+
+        // Apply green color to the text
+        try {
+            if (Reflect.hasField(item, "text")) {
+                var textField = Reflect.field(item, "text");
+                if (textField != null) {
+                    textField.color = headerColor;
+                }
+            }
+        } catch (_:Dynamic) {}
+
+        menu.preferenceItems.add(new FlxSprite().makeGraphic(1, 1, FlxColor.TRANSPARENT));
+        menu.preferenceDesc.push(headerDesc);
+    }
+
+    override function onStateChangeEnd(event)
+    {
+        super.onStateChangeEnd(event);
+
+        if (!Std.isOfType(event.targetState, OptionsState))
+            return;
+
+        preferences = event.targetState.optionsCodex.pages.get("preferences");
+        if (preferences == null)
+            return;
+
+        var opts = FlxG.save.data.SpeculaSongIntroOptions;
+
+        preferences.createPrefItemCheckbox(
+            "Enable Song Intro",
+            "Shows the song intro before gameplay.",
+            function(value:Bool) {
+                FlxG.save.data.songIntroEnabled = value;
+                FlxG.save.flush();
+            },
+            FlxG.save.data.songIntroEnabled
+        );
+
+        preferences.createPrefItemCheckbox(
+            "Black Fade",
+            "Fade screen to black during the intro.",
+            function(value:Bool) {
+                FlxG.save.data.songIntroFadeEnabled = value;
+                FlxG.save.flush();
+            },
+            FlxG.save.data.songIntroFadeEnabled
+        );
+
+        createPrefItemHeader(preferences, "NEW!!", "There's new Preferences! Check them out. But none of them work. Yet. ", FlxColor.GREEN);
+
+        preferences.createPrefItemCheckbox(
+            "Show Artist Name",
+            "Display the song artist during the intro.",
+            function(value:Bool) {
+                FlxG.save.data.showArtist = value;
+                opts.showArtistName = value;
+                FlxG.save.flush();
+            },
+            FlxG.save.data.showArtist
+        );
+
+        preferences.createPrefItemCheckbox(
+            "Show Background",
+            "Show a panel behind the intro text.",
+            function(value:Bool) {
+                opts.showIntro = value;
+                FlxG.save.flush();
+            },
+            opts.showIntro
+        );
+
+        preferences.createPrefItemNumber(
+            "Background Opacity",
+            "Transparency of the background.",
+            function(value:Float) {
+                opts.introBGOpacity = Std.int(value);
+                FlxG.save.flush();
+            },
+            function(value:Float):String {
+                return Std.string(Std.int(value)) + "%";
+            },
+            opts.introBGOpacity,
+            0, 100,
+            5,
+            0
+        );
+
+        preferences.createPrefItemNumber(
+            "Corner Radius",
+            "Roundness of background corners.",
+            function(value:Float) {
+                opts.introBGRadius = Std.int(value);
+                FlxG.save.flush();
+            },
+            function(value:Float):String {
+                return Std.string(Std.int(value));
+            },
+            opts.introBGRadius,
+            0, 64,
+            1,
+            0
+        );
+
+        preferences.createPrefItemEnum(
+            "Background Color",
+            "Color of the background panel.",
+            [
+                "Black"  => "Black",
+                "Gray"   => "Gray",
+                "White"  => "White",
+                "Purple" => "Purple"
+            ],
+            function(_, value:String) {
+                opts.introBGColor = value;
+                FlxG.save.flush();
+            },
+            opts.introBGColor
+        );
+
+        preferences.createPrefItemEnum(
+            "Intro Position",
+            "Where the intro appears on screen.",
+            [
+                "Top"    => "Top",
+                "Center" => "Center",
+                "Bottom" => "Bottom"
+            ],
+            function(_, value:String) {
+                opts.introPosition = value;
+                FlxG.save.flush();
+            },
+            opts.introPosition
+        );
+
+        preferences.createPrefItemEnum(
+            "Transition Type",
+            "Animation style for the intro text.",
+            [
+                "Slide"  => "Slide",
+                "Pop"    => "Pop",
+                "Reveal" => "Reveal"
+            ],
+            function(_, value:String) {
+                opts.transitionType = value;
+                FlxG.save.flush();
+            },
+            opts.transitionType
+        );
+
+        // Conditional: Slide Direction (only if transitionType is "Slide")
+        var updateSlideDirection = function() {
+            if (opts.transitionType == "Slide") {
+                preferences.createPrefItemEnum(
+                    "Slide Direction",
+                    "Direction the text slides from.",
+                    [
+                        "Left"  => "Left",
+                        "Right" => "Right",
+                        "Up"    => "Up",
+                        "Down"  => "Down"
+                    ],
+                    function(_, value:String) {
+                        opts.slideDirection = value;
+                        FlxG.save.flush();
+                    },
+                    opts.slideDirection
+                );
+            }
+        };
+
+        updateSlideDirection();
+    }
+}

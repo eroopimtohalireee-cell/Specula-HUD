@@ -1,0 +1,112 @@
+package speculahud;
+
+import funkin.modding.module.Module;
+import funkin.modding.events.StateChangeScriptEvent;
+import funkin.save.Save;
+import funkin.ui.options.OptionsState;
+import funkin.ui.options.PreferencesMenu;
+
+import flixel.FlxSprite;
+import Std;
+
+class SpeculaWatermarkOptions extends Module
+{
+    var save:Save;
+    var prefs:Dynamic;
+
+    public function new()
+    {
+        super("SpeculaWatermarkOptions", 5);
+
+        save = Save.instance;
+
+        // Initialize prefs inside save.data
+        if (save.data.SpeculaWatermarkOptions == null)
+        {
+            save.data.SpeculaWatermarkOptions = {
+                enabled: true,
+                position: "BottomRight"
+            };
+        }
+
+        prefs = save.data.SpeculaWatermarkOptions;
+
+        // Ensure keys exist
+        if (prefs.enabled == null) prefs.enabled = true;
+        if (prefs.position == null) prefs.position = "BottomRight";
+
+        save.flush();
+    }
+
+    /* ───────────────────────────────────────────── */
+    /*  Helper for Section Headers                   */
+    /* ───────────────────────────────────────────── */
+
+    function createPrefItemHeader(menu:PreferencesMenu, name:String, desc:String)
+    {
+        menu.items.createItem(10, (120 * menu.items.length) + 30, name, "bold", function() {}, true);
+        menu.preferenceItems.add(new FlxSprite().makeGraphic(1, 1, 0x00000000));
+        menu.preferenceDesc.push(desc);
+    }
+
+
+    override function onStateChangeEnd(e:StateChangeScriptEvent)
+    {
+        super.onStateChangeEnd(e);
+
+        if (Std.isOfType(e.targetState, OptionsState))
+        {
+            var menu:PreferencesMenu = e.targetState.optionsCodex.pages.get("preferences");
+            if (menu != null)
+            {
+                createPrefItemHeader(menu, "- Watermark -",
+                    "Mess with these settings to assert dominance over the HUD."
+                );
+
+                /* =======================================
+                   Toggle Enabled
+                ======================================= */
+                menu.createPrefItemCheckbox(
+                    "Show Watermark",
+                    "Turn this off to hide the watermark.\n"
+                    + "Turn it on to flex my modding powers.",
+                    function(v:Bool) {
+                        prefs.enabled = v;
+                        save.flush();
+                    },
+                    prefs.enabled
+                );
+
+                /* =======================================
+                   Position Enum
+                ======================================= */
+                menu.createPrefItemEnum(
+                    "Watermark Position",
+                    "Choose where the watermark chills.\n"
+                    + "Top Left means 'professional'.\n"
+                    + "Bottom Right means 'cool kid corner'.",
+                    [
+                        "TopLeft" => "TopLeft",
+                        "TopRight" => "TopRight",
+                        "BottomLeft" => "BottomLeft",
+                        "BottomRight" => "BottomRight"
+                    ],
+                    function(key:String, value:String) {
+                        prefs.position = value;
+                        save.flush();
+                    },
+                    prefs.position
+                );
+
+                createPrefItemHeader(
+                    menu,
+                    "- End of Watermark Options -",
+                    "You have reached the bottom.\n"
+                    + "No treasure here, just pride."
+                );
+            }
+
+            save.flush();
+        }
+    }
+}

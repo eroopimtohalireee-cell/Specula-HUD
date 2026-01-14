@@ -1,0 +1,422 @@
+package module.ui.main;
+
+import funkin.graphics.FunkinSprite;
+import funkin.modding.module.Module;
+import funkin.play.PlayState;
+import funkin.play.Countdown;
+import funkin.save.Save;
+import funkin.Conductor;
+import funkin.Paths;
+
+import flixel.text.FlxTextBorderStyle;
+import flixel.text.FlxText;
+import flixel.util.FlxSpriteUtil;
+import flixel.util.FlxTimer;
+import flixel.util.FlxColor;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import flixel.FlxSprite;
+import flixel.FlxG;
+
+import util.SpeculaColorUtil;
+import util.SpeculaValueUtil;
+
+import Reflect;
+import Std;
+
+
+class SongIntro extends Module
+{
+    var game:PlayState;
+    var beatTime:Float;
+
+    var blackFade:FunkinSprite;
+    var introBG:FlxSprite;
+
+    var nowPlayingText:FlxText;
+    var songTitleText:FlxText;
+    var difficultyLabelText:FlxText;
+    var difficultyValueText:FlxText;
+    var artistText:FlxText;
+
+    var allTexts:Array<FlxText>;
+    var introPlaying:Bool = false;
+
+    var appearTime:Float;
+    var holdTime:Float;
+    var exitTime:Float;
+
+    // Preferences
+    var prefs:Dynamic;
+
+    function new()
+    {
+        super("SongIntro", 10000);
+    }
+
+    override function onStateChangeEnd(event)
+    {
+        super.onStateChangeEnd(event);
+        game = PlayState.instance;
+        beatTime = Conductor.instance.beatLengthMs / 1000;
+
+        appearTime = beatTime * 1.25;
+        holdTime   = beatTime * 1.0;
+        exitTime   = beatTime * 1.25;
+    }
+
+    override function onCountdownStart(event)
+    {
+        super.onCountdownStart(event);
+
+        if (introPlaying) return;
+
+        if (FlxG.save.data.songIntroEnabled != true) return;
+
+        introPlaying = true;
+
+        new FlxTimer().start(0.00001, function(_)
+        {
+            if (!game.isInCountdown && !PlayState.chartingMode) return;
+
+            Countdown.stopCountdown();
+            createBlackFade();
+            createTexts();
+
+            new FlxTimer().start(beatTime * 0.15, (_) -> {
+                startIntroSequence();
+            });
+        });
+    }
+
+    function getSongName():String
+    {
+        return game.currentChart.songName.toUpperCase();
+    }
+
+    function getDifficulty():String
+    {
+        var diff = game.currentChart.difficulty;
+        return diff != null ? diff.toUpperCase() : "NORMAL";
+    }
+
+    function getDifficultyColor():Int
+    {
+        return switch (getDifficulty())
+        {
+            case "EASY": 0xFF4CFF4C;
+            case "NORMAL": 0xFFFFFF66;
+            case "HARD": 0xFFFF4C4C;
+            case "ERECT": 0xFF9B4CFF;
+            case "NIGHTMARE": 0xFF5A1E96;
+            default: FlxColor.WHITE;
+        }
+    }
+
+    function readPrefs():Dynamic
+    {
+        var save = Save.instance;
+        if (save == null) return defaultPrefs();
+
+        var data:Dynamic = null;
+        try { data = Reflect.field(save, "data"); } catch (_:Dynamic) {}
+        if (data == null) return defaultPrefs();
+
+        var m:Dynamic = null;
+        try { m = Reflect.field(data, "SpeculaSongIntroOptions"); } catch (_:Dynamic) {}
+        if (m == null) return defaultPrefs();
+
+        var showBG:Bool = true;
+        var bgColor:String = "Black";
+        var bgOpacity:Int = 50;
+        var bgRadius:Int = 15;
+        var position:String = "Center";
+        var showArtist:Bool = true;
+
+        try { if (Reflect.hasField(m, "showIntro")) showBG = (m.showIntro == true); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "introBGColor")) bgColor = Std.string(m.introBGColor); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "introBGOpacity")) bgOpacity = Std.int(m.introBGOpacity); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "introBGRadius")) bgRadius = Std.int(m.introBGRadius); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "introPosition")) position = Std.string(m.introPosition); } catch (_:Dynamic) {}
+        try { if (Reflect.hasField(m, "showArtistName")) showArtist = (m.showArtistName == true); } catch (_:Dynamic) {}
+
+        return {
+            showBG: showBG,
+            bgColor: bgColor,
+            bgOpacity: bgOpacity,
+            bgRadius: bgRadius,
+            position: position,
+            showArtist: showArtist
+        };
+    }
+
+    function defaultPrefs():Dynamic
+    {
+        return {
+            showBG: true,
+            bgColor: "Black",
+            bgOpacity: 50,
+            bgRadius: 15,
+            position: "Center",
+            showArtist: true
+        };
+    }
+
+    function centerTextX(t:FlxText)
+    {
+        t.x = (FlxG.width - t.width) * 0.5;
+    }
+
+
+    // ----------CREATION
+
+    function createBlackFade()
+    {
+        if (FlxG.save.data.songIntroFadeEnabled != true)
+            return;
+
+        blackFade = new FunkinSprite(0, 0).makeSolidColor(
+            Std.int(FlxG.width * 1.5),
+            Std.int(FlxG.height * 1.5),
+            FlxColor.BLACK
+        );
+
+        blackFade.alpha = 1;
+        blackFade.zIndex = 8000;
+        blackFade.cameras = [game.camHUD];
+
+        game.add(blackFade);
+    }
+
+    //-------------Create Intro stuff
+    function createTexts()
+    {
+        prefs = readPrefs();
+
+        // Determine Y position based on preference
+        var baseY:Float = FlxG.height * 0.30;
+        if (prefs.position == "Top") baseY = FlxG.height * 0.15;
+        else if (prefs.position == "Bottom") baseY = FlxG.height * 0.65;
+
+        var centerX = FlxG.width * 0.5;
+
+        // NOW PLAYING
+        nowPlayingText = new FlxText(0, baseY, 0, "♪ N O W  P L A Y I N G ♪");
+        prepareText(nowPlayingText, Paths.font("NOW PLAYING FONT.otf"), 48, FlxColor.YELLOW);
+        centerTextX(nowPlayingText);
+
+        // SONG TITLE
+        songTitleText = new FlxText(0, baseY + 60, 0, getSongName());
+        prepareText(songTitleText, Paths.font("Little Hope.ttf"), 72, FlxColor.WHITE);
+        centerTextX(songTitleText);
+
+        // ARTIST NAME (NEW)
+        var artistY = baseY + 130;
+        if (prefs.showArtist)
+        {
+            artistText = new FlxText(0, artistY, 0, getArtistName());
+            prepareText(artistText, Paths.font("vcr.ttf"), 32, FlxColor.CYAN, "center");
+            centerTextX(artistText);
+            artistY += 40;
+        }
+
+        // DIFFICULTY LABEL
+        difficultyLabelText = new FlxText(0, artistY + 40, 0, "DIFFICULTY:");
+        prepareText(difficultyLabelText, Paths.font("vcr.ttf"), 40, FlxColor.WHITE, "right");
+
+        // DIFFICULTY VALUE
+        difficultyValueText = new FlxText(0, difficultyLabelText.y, 0, getDifficulty());
+        prepareText(difficultyValueText, Paths.font("vcr.ttf"), 40, getDifficultyColor(), "center");
+
+        // Center the difficulty pair
+        difficultyLabelText.x = centerX - 10 - difficultyLabelText.width;
+        difficultyValueText.x = centerX + 20;
+
+        // Group texts
+        allTexts = [nowPlayingText, songTitleText, difficultyLabelText, difficultyValueText];
+        if (artistText != null) allTexts.insert(2, artistText);
+
+        // Create background panel
+        if (prefs.showBG)
+        {
+            createIntroBackground(baseY, artistY + 80);
+        }
+
+        // Final setup
+        for (t in allTexts)
+        {
+            t.ID = Std.int(t.y);
+            t.cameras = [game.camHUD];
+            t.alpha = 0;
+            t.zIndex = 8100;
+            t.scale.set(0.9, 0.9);
+            game.add(t);
+        }
+
+        game.refresh();
+    }
+
+    function createIntroBackground(startY:Float, endY:Float):Void
+    {
+        var padding = 40;
+        var bgWidth = 500;
+        var bgHeight = Std.int(endY - startY + padding * 2);
+        var bgX = (FlxG.width - bgWidth) * 0.5;
+        var bgY = startY - padding;
+
+        introBG = new FlxSprite(bgX, bgY);
+
+        try {
+            introBG.makeGraphic(bgWidth, bgHeight, 0x00000000, true);
+            var bgCol = SpeculaColorUtil.resolveColor(prefs.bgColor);
+            FlxSpriteUtil.drawRoundRect(introBG, 0, 0, bgWidth, bgHeight, prefs.bgRadius, prefs.bgRadius, bgCol);
+            introBG.updateHitbox();
+        } catch (_:Dynamic) {}
+
+        introBG.alpha = SpeculaValueUtil.alphaFromPercent(prefs.bgOpacity);
+        introBG.scrollFactor.set();
+        introBG.cameras = [game.camHUD];
+        introBG.zIndex = 905;
+        game.add(introBG);
+    }
+
+    function getArtistName():String
+    {
+        try {
+            if (game.currentChart != null && Reflect.hasField(game.currentChart, "artist"))
+            {
+                var artist = Reflect.field(game.currentChart, "artist");
+                if (artist != null) return Std.string(artist).toUpperCase();
+            }
+        } catch (_:Dynamic) {}
+        return "UNKNOWN ARTIST";
+    }
+
+    function prepareText(t:FlxText, font:String, size:Int, color:Int, align:String = "center")
+    {
+        t.setFormat(font, size, color, align);
+        applyOutline(t);
+    }
+
+    function applyOutline(t:FlxText)
+    {
+        t.borderStyle = FlxTextBorderStyle.OUTLINE;
+        t.borderColor = FlxColor.BLACK;
+        t.borderSize = 2;
+    }
+
+    // ------------INTRO SEQUENCE
+
+    function startIntroSequence()
+    {
+        showNowPlaying();
+    }
+
+    function showNowPlaying()
+    {
+        tweenIn(nowPlayingText);
+
+        new FlxTimer().start(appearTime + holdTime, (_) ->
+        {
+            tweenOut(nowPlayingText, -30);
+            revealSongInfo();
+        });
+    }
+
+    function revealSongInfo()
+    {
+        tweenIn(songTitleText);
+        tweenIn(difficultyLabelText);
+        tweenIn(difficultyValueText);
+
+        new FlxTimer().start(appearTime + holdTime, (_) ->
+        {
+            endIntroSequence();
+        });
+    }
+
+    function endIntroSequence()
+    {
+        for (t in allTexts)
+            tweenOut(t, 10);//!This was 30
+
+        if (blackFade != null)
+        {
+            FlxTween.tween(blackFade, { alpha: 0 }, exitTime, {
+                ease: FlxEase.sineOut,
+                onComplete: (_) ->
+                {
+                    cleanup();
+                    Countdown.resumeCountdown();
+                }
+            });
+        }
+        else
+        {
+            cleanup();
+            Countdown.resumeCountdown();
+        }
+    }
+
+
+    // --------------------------------------------------
+    // TWEEN HELPERS
+    // --------------------------------------------------
+
+    function tweenIn(t:FlxText)
+    {
+        FlxTween.tween(t, { alpha: 1 }, appearTime, { ease: FlxEase.quadOut });
+        FlxTween.tween(t.scale, { x: 1, y: 1 }, appearTime, { ease: FlxEase.backOut });
+    }
+
+    function tweenOut(t:FlxText, yOffset:Float)
+    {
+        FlxTween.tween(t, {
+            alpha: 0,
+            y: t.ID + yOffset
+        }, exitTime, { ease: FlxEase.quadIn });
+    }
+
+    // --------------------------------------------------
+    // CLEANUP
+    // --------------------------------------------------
+
+    function cleanup()
+    {
+        if (allTexts != null)
+        {
+            for (t in allTexts)
+                if (t != null) t.destroy();
+            allTexts = null;
+        }
+
+        if (blackFade != null)
+        {
+            blackFade.destroy();
+            blackFade = null;
+        }
+
+        if (introBG != null)
+        {
+            introBG.destroy();
+            introBG = null;
+        }
+
+        introPlaying = false;
+    }
+
+    //Safe Destroy
+    override function onDestroy(event)
+    {
+        if (nowPlayingText != null) FlxTween.cancelTweensOf(nowPlayingText);
+        if (songTitleText != null) FlxTween.cancelTweensOf(songTitleText);
+        if (artistText != null) FlxTween.cancelTweensOf(artistText);
+        if (difficultyLabelText != null) FlxTween.cancelTweensOf(difficultyLabelText);
+        if (difficultyValueText != null) FlxTween.cancelTweensOf(difficultyValueText);
+        if (blackFade != null) FlxTween.cancelTweensOf(blackFade);
+        if (introBG != null) FlxTween.cancelTweensOf(introBG);
+
+        super.onDestroy(event);
+        cleanup();
+    }
+}

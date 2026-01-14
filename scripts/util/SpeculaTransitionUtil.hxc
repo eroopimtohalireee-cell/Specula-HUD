@@ -1,0 +1,380 @@
+package util;
+
+import funkin.modding.module.ScriptedModule;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+
+/**
+ * SpeculaTransitionUtil
+ * A utility for adding smooth fade and slide transitions to HUD elements.
+ * Supports fade in/out on song start/end and optional slide animations.
+ */
+class SpeculaTransitionUtil extends ScriptedModule
+{
+    public function new()
+    {
+        super("SpeculaTransitionUtil", -1000);
+    }
+
+    /**
+     * Fade in a sprite or text element.
+     *
+     * @param obj The FlxSprite or FlxText to fade in
+     * @param duration Time in seconds for the fade
+     * @param startAlpha Starting alpha value (default 0 = transparent)
+     * @param endAlpha Ending alpha value (default 1 = opaque)
+     * @param ease Easing function (default linear)
+     * @return The FlxTween object
+     */
+    public static function fadeIn(obj:Dynamic, duration:Float = 0.5, startAlpha:Float = 0, endAlpha:Float = 1, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.linear;
+
+        try
+        {
+            obj.alpha = startAlpha;
+            return FlxTween.tween(obj, { alpha: endAlpha }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Fade out a sprite or text element.
+     *
+     * @param obj The FlxSprite or FlxText to fade out
+     * @param duration Time in seconds for the fade
+     * @param startAlpha Starting alpha value (default 1 = opaque)
+     * @param endAlpha Ending alpha value (default 0 = transparent)
+     * @param ease Easing function (default linear)
+     * @return The FlxTween object
+     */
+    public static function fadeOut(obj:Dynamic, duration:Float = 0.5, startAlpha:Float = 1, endAlpha:Float = 0, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.linear;
+
+        try
+        {
+            obj.alpha = startAlpha;
+            return FlxTween.tween(obj, { alpha: endAlpha }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Slide in from the left.
+     *
+     * @param obj The object to slide
+     * @param toX Target X position
+     * @param duration Time in seconds
+     * @param ease Easing function (default linear)
+     * @return The FlxTween object
+     */
+    public static function slideInFromLeft(obj:Dynamic, toX:Float, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoOut;
+
+        try
+        {
+            var startX = toX - 400;
+            obj.x = startX;
+            return FlxTween.tween(obj, { x: toX }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Slide in from the right.
+     *
+     * @param obj The object to slide
+     * @param toX Target X position
+     * @param duration Time in seconds
+     * @param ease Easing function (default linear)
+     * @return The FlxTween object
+     */
+    public static function slideInFromRight(obj:Dynamic, toX:Float, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoOut;
+
+        try
+        {
+            var startX = toX + 400;
+            obj.x = startX;
+            return FlxTween.tween(obj, { x: toX }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Slide in from the top.
+     *
+     * @param obj The object to slide
+     * @param toY Target Y position
+     * @param duration Time in seconds
+     * @param ease Easing function (default linear)
+     * @return The FlxTween object
+     */
+    public static function slideInFromTop(obj:Dynamic, toY:Float, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoOut;
+
+        try
+        {
+            var startY = toY - 300;
+            obj.y = startY;
+            return FlxTween.tween(obj, { y: toY }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Slide in from the bottom.
+     *
+     * @param obj The object to slide
+     * @param toY Target Y position
+     * @param duration Time in seconds
+     * @param ease Easing function (default linear)
+     * @return The FlxTween object
+     */
+    public static function slideInFromBottom(obj:Dynamic, toY:Float, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoOut;
+
+        try
+        {
+            var startY = toY + 300;
+            obj.y = startY;
+            return FlxTween.tween(obj, { y: toY }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Slide out to the left.
+     *
+     * @param obj The object to slide
+     * @param duration Time in seconds
+     * @param ease Easing function
+     * @return The FlxTween object
+     */
+    public static function slideOutLeft(obj:Dynamic, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoIn;
+
+        try
+        {
+            return FlxTween.tween(obj, { x: obj.x - 400 }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Slide out to the right.
+     *
+     * @param obj The object to slide
+     * @param duration Time in seconds
+     * @param ease Easing function
+     * @return The FlxTween object
+     */
+    public static function slideOutRight(obj:Dynamic, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoIn;
+
+        try
+        {
+            return FlxTween.tween(obj, { x: obj.x + 400 }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Scale animation - grow in effect.
+     *
+     * @param obj The object to scale
+     * @param duration Time in seconds
+     * @param startScale Starting scale (default 0)
+     * @param endScale Ending scale (default 1)
+     * @param ease Easing function
+     * @return The FlxTween object
+     */
+    public static function scaleIn(obj:Dynamic, duration:Float = 0.5, startScale:Float = 0, endScale:Float = 1, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.elasticOut;
+
+        try
+        {
+            obj.scale.set(startScale, startScale);
+            return FlxTween.tween(obj.scale, { x: endScale, y: endScale }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Combined fade in + slide in from top animation.
+     * Perfect for HUD elements appearing on song start.
+     *
+     * @param obj The object to animate
+     * @param toY Target Y position
+     * @param duration Time in seconds
+     * @param ease Easing function
+     * @return The FlxTween object
+     */
+    public static function slideInFadeIn(obj:Dynamic, toY:Float, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoOut;
+
+        try
+        {
+            var startY = toY - 200;
+            obj.alpha = 0;
+            obj.y = startY;
+            return FlxTween.tween(obj, { alpha: 1, y: toY }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Combined fade out + slide out animation.
+     * Perfect for HUD elements disappearing on song end.
+     *
+     * @param obj The object to animate
+     * @param duration Time in seconds
+     * @param ease Easing function
+     * @return The FlxTween object
+     */
+    public static function slideOutFadeOut(obj:Dynamic, duration:Float = 0.5, ease:Dynamic = null):FlxTween
+    {
+        if (obj == null) return null;
+
+        if (ease == null)
+            ease = FlxEase.expoIn;
+
+        try
+        {
+            return FlxTween.tween(obj, { alpha: 0, y: obj.y - 200 }, duration, { ease: ease });
+        }
+        catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    public static function reveal(obj:Dynamic):Void
+    {
+        if (obj == null) return;
+        try {
+            obj.alpha = 1;
+            obj.visible = true;
+        } catch (_:Dynamic) {}
+    }
+
+    public static function vanish(obj:Dynamic):Void
+    {
+        if (obj == null) return;
+        try {
+            obj.alpha = 0;
+            obj.visible = false;
+        } catch (_:Dynamic) {}
+    }
+
+    public static function popIn(obj:Dynamic, duration:Float = 0.35):FlxTween
+    {
+        if (obj == null) return null;
+
+        try {
+            obj.scale.set(0.6, 0.6);
+            obj.alpha = 1;
+            return FlxTween.tween(
+                obj.scale,
+                { x: 1, y: 1 },
+                duration,
+                { ease: FlxEase.backOut }
+            );
+        } catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    public static function popOut(obj:Dynamic, duration:Float = 0.25):FlxTween
+    {
+        if (obj == null) return null;
+
+        try {
+            return FlxTween.tween(
+                obj,
+                { alpha: 0 },
+                duration,
+                { ease: FlxEase.backIn }
+            );
+        } catch (_:Dynamic) {}
+
+        return null;
+    }
+
+    /**
+     * Cancel all tweens on an object.
+     * Safe to call even if no tweens are active.
+     *
+     * @param obj The object to stop tweening
+     */
+    public static function cancelTweens(obj:Dynamic):Void
+    {
+        if (obj == null) return;
+
+        try
+        {
+            FlxTween.cancelTweensOf(obj);
+        }
+        catch (_:Dynamic) {}
+    }
+}

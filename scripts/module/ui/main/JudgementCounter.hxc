@@ -1,0 +1,541 @@
+package module.ui.main;
+
+import funkin.modding.module.Module;
+import funkin.play.PlayState;
+import funkin.Highscore;
+
+import flixel.FlxG;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.text.FlxTextBorderStyle;
+import flixel.util.FlxSpriteUtil;
+import flixel.util.FlxGradient;
+import flixel.tweens.FlxTween;
+
+import util.SpeculaColorUtil;
+import util.SpeculaGradientUtil;
+import util.SpeculaValueUtil;
+import util.SpeculaTransitionUtil;
+
+import Reflect;
+import Std;
+
+class SpeculaJudgmentCounter extends Module {
+
+    public function new() {
+        super("SpeculaJudgmentCounter", 30);
+    }
+
+    var lastBGColor:Int = -1;
+    var lastBGRadius:Int = -1;
+    var lastBGAlpha:Float = -1;
+    var lastBGGradient:String = "";
+
+    var sidebarBG:FlxSprite;
+    var judgeLabels:Array<FlxText> = [];
+    var judgeCounts:Array<FlxText> = [];
+    var created = false;
+    var loaded = false;
+    var displayed = ["sick", "good", "bad", "shit", "miss"];
+    var prevTallies:Map<String, Int> = [];
+    var prevFontId:String = "";
+
+
+    var bopEnabled:Bool = true;
+    var bopIntensity:Float = 1.0;
+    var bopScale:Float = 1.06;
+    var bopDuration:Float = 0.18;
+
+    var sickColor = 0xFF2DE356;   // green
+    var goodColor = 0xFF25B5EB;   // blue
+    var badColor = 0xFFE6B72B;    // yellow
+    var shitColor = 0xFFD23534;   // red
+    var missesColor = 0xFFA244D5; // purple
+
+    function getJudgmentColor(k:String):Int {
+        return switch (k) {
+            case "sick": sickColor;
+            case "good": goodColor;
+            case "bad": badColor;
+            case "shit": shitColor;
+            case "miss": missesColor;
+            default: 0xFFFFFFFF;
+        }
+    }
+
+    function ensureDefaults() {
+        try {
+            if (FlxG.save.data.SpeculaJudgmentOptions != null) {
+
+                if (!Reflect.hasField(s, "judgmentShow")) Reflect.setField(s, "judgmentShow", true);
+                if (!Reflect.hasField(s, "judgmentColor")) Reflect.setField(s, "judgmentColor", "Black");
+                if (!Reflect.hasField(s, "judgmentOpacity")) Reflect.setField(s, "judgmentOpacity", 50);
+                if (!Reflect.hasField(s, "judgmentCornerRadius")) Reflect.setField(s, "judgmentCornerRadius", 15);
+                if (!Reflect.hasField(s, "judgmentFont")) Reflect.setField(s, "judgmentFont", "Roboto-Bold");
+                if (!Reflect.hasField(s, "judgmentPosition")) Reflect.setField(s, "judgmentPosition", "Left");
+                if (!Reflect.hasField(s, "judgmentBop")) Reflect.setField(s, "judgmentBop", true);
+                if (!Reflect.hasField(s, "judgmentBopIntensity")) Reflect.setField(s, "judgmentBopIntensity", 1.0);
+            } else {
+                if (FlxG.save.data.spec_show == null) FlxG.save.data.spec_show = true;
+                if (FlxG.save.data.spec_opacity == null) FlxG.save.data.spec_opacity = 50;
+                if (FlxG.save.data.spec_color == null) FlxG.save.data.spec_color = "Black";
+                if (FlxG.save.data.spec_size == null) FlxG.save.data.spec_size = "medium";
+                if (FlxG.save.data.spec_corner == null) FlxG.save.data.spec_corner = 15;
+                if (FlxG.save.data.spec_font == null) FlxG.save.data.spec_font = "Roboto-Bold";
+                if (FlxG.save.data.spec_pos == null) FlxG.save.data.spec_pos = "Left";
+                if (FlxG.save.data.spec_judgment_bop == null) FlxG.save.data.spec_judgment_bop = true;
+                if (FlxG.save.data.spec_judgment_bop_intensity == null) FlxG.save.data.spec_judgment_bop_intensity = 1.0;
+            }
+        } catch (_:Dynamic) {}
+        FlxG.save.flush();
+    }
+
+    function readPrefs() {
+        try {
+            if (FlxG.save.data.SpeculaJudgmentOptions != null) {
+
+                return {
+                    visible: (Reflect.hasField(s, "judgmentShow") ? Reflect.field(s, "judgmentShow") == true : true),
+                    color: (Reflect.hasField(s, "judgmentColor") ? Std.string(Reflect.field(s, "judgmentColor")) : "Black"),
+                    opacity: (Reflect.hasField(s, "judgmentOpacity") ? Std.int(Reflect.field(s, "judgmentOpacity")) : 50),
+                    radius: (Reflect.hasField(s, "judgmentCornerRadius") ? Std.int(Reflect.field(s, "judgmentCornerRadius")) : 15),
+                    font: (Reflect.hasField(s, "judgmentFont") ? Std.string(Reflect.field(s, "judgmentFont")) : "Roboto-Bold"),
+                    position: (Reflect.hasField(s, "judgmentPosition") ? Std.string(Reflect.field(s, "judgmentPosition")) : "Left"),
+                    textsize: (Reflect.hasField(s, "judgmentTextSize") ? Std.string(Reflect.field(s, "judgmentTextSize")) : "Medium"),
+                    bopEnabled: (Reflect.hasField(s, "judgmentBop") ? Reflect.field(s, "judgmentBop") == true : true),
+                    bopIntensity: (Reflect.hasField(s, "judgmentBopIntensity") ? Std.parseFloat(Std.string(Reflect.field(s, "judgmentBopIntensity"))) : 1.0),
+                };
+            }
+        } catch (_:Dynamic) {}
+
+        return {
+            visible: (FlxG.save.data.spec_show == true),
+            color: (FlxG.save.data.spec_color != null ? FlxG.save.data.spec_color : "Black"),
+            opacity: (FlxG.save.data.spec_opacity != null ? Std.int(FlxG.save.data.spec_opacity) : 50),
+            radius: (FlxG.save.data.spec_corner != null ? Std.int(FlxG.save.data.spec_corner) : 15),
+            font: (FlxG.save.data.spec_font != null ? FlxG.save.data.spec_font : "Roboto-Bold"),
+            position: (FlxG.save.data.spec_pos != null ? FlxG.save.data.spec_pos : "Left"),
+            textsize: (FlxG.save.data.spec_size != null ? FlxG.save.data.spec_size : "Medium"),
+            bopEnabled: (FlxG.save.data.spec_judgment_bop == true),
+            bopIntensity: (FlxG.save.data.spec_judgment_bop_intensity != null ? FlxG.save.data.spec_judgment_bop_intensity : 1.0),
+        };
+    }
+
+
+    function getTally(k:String):Int {
+        return switch (k) {
+            case "sick":    Highscore.tallies.sick;
+            case "good":    Highscore.tallies.good;
+            case "bad":     Highscore.tallies.bad;
+            case "shit":    Highscore.tallies.shit;
+            case "miss":    Highscore.tallies.missed;
+            default: 0;
+        };
+    }
+
+    function resolveFontName(id:String):String
+    {
+        if (id == null) return "Roboto-Bold.ttf";
+
+        return switch (id)
+        {
+            case "Roboto-Bold":           "Roboto-Bold.ttf";
+            case "Jumps-To-Winter":       "Jumps To Winter.ttf";
+            case "KG-Perfect-Penmanship": "KGPerfectPenmanship.ttf";
+            case "Little-Hope":           "Little Hope.ttf";
+            case "Spicy-Sale":            "Spicy Sale.ttf";
+            case "VCR":                   "VCR OSD Mono.ttf";
+            case "Typewriter":            "ATypewriterForMe.ttf";
+            case "Crayon":                "DK Crayon Crumble.ttf";
+            case "Phantommuff":           "Phantommuff.ttf";
+            case "Lapsus-Pro-Bold":       "LapsusPro-Bold.otf";
+            default:                      "Roboto-Bold.ttf";
+        }
+    }
+
+    function tryLoadFont(fontId:String):String {
+        if (fontId == null) fontId = "Roboto-Bold";
+
+        var resolvedName = resolveFontName(fontId);
+        var fontPath:String = null;
+
+        try {
+            fontPath = Paths.font(resolvedName);
+        } catch (e:Dynamic) {
+            trace("[SpeculaJudgmentCounter] Font load failed for '" + fontId + "' (" + resolvedName + "): " + Std.string(e));
+            fontPath = null;
+        }
+
+        // Fallback if initial font failed
+        if (fontPath == null) {
+            try {
+                fontPath = Paths.font("Roboto-Bold.ttf");
+                trace("[SpeculaJudgmentCounter] Falling back to Roboto-Bold for '" + fontId + "'");
+            } catch (e:Dynamic) {
+                trace("[SpeculaJudgmentCounter] CRITICAL: Even Roboto-Bold failed to load: " + Std.string(e));
+                fontPath = null;
+            }
+        }
+
+        return fontPath;
+    }
+
+    override function onCreate(e) {
+        super.onCreate(e);
+        ensureDefaults();
+        loaded = false;
+    }
+
+    override function onStateChange(e) {
+        super.onStateChange(e);
+        if (e.from == "PlayState") cleanup();
+        if (e.to == "PlayState") loaded = false;
+    }
+
+    override function onCountdownStart(e) {
+        super.onCountdownStart(e);
+        var state = PlayState.instance;
+        if (state == null) return;
+
+        var p = readPrefs();
+        bopEnabled = p.bopEnabled;
+        bopIntensity = p.bopIntensity;
+
+        if (created && loaded) {
+            resetPrev();
+            updateCounts(true);
+            return;
+        }
+
+        createSidebar(state);
+        resetPrev();
+        updateCounts(true);
+        created = true;
+        loaded = true;
+
+        // Register note hit listener for bop
+        try {
+            PlayState.instance.addEventListener("noteHit", onNoteHit);
+        } catch (_:Dynamic) {
+            trace("[SpeculaJudgmentCounter] Warning: Could not register noteHit listener");
+        }
+
+        // Fade in animations
+        try {
+            if (sidebarBG != null) {
+                SpeculaTransitionUtil.fadeIn(sidebarBG, 0.5);
+            }
+            for (lbl in judgeLabels) {
+                if (lbl != null) {
+                    SpeculaTransitionUtil.fadeIn(lbl, 0.5);
+                }
+            }
+            for (cnt in judgeCounts) {
+                if (cnt != null) {
+                    SpeculaTransitionUtil.fadeIn(cnt, 0.5);
+                }
+            }
+        } catch (_:Dynamic) {}
+        state.refresh();
+    }
+
+    function drawRoundedBG(s:FlxSprite, w:Int, h:Int, col:Int, radius:Int):Void {
+        if (s == null) return;
+        var madeGraphic:Bool = false;
+        try { s.makeGraphic(w, h, 0x00000000, true); madeGraphic = true; } catch (_:Dynamic) { madeGraphic = false; }
+        if (!madeGraphic) try { s.makeGraphic(w, h, 0x00000000); madeGraphic = true; } catch (_:Dynamic) {}
+        try { FlxSpriteUtil.drawRoundRect(s, 0, 0, w, h, radius, radius, col); } catch (_:Dynamic) {}
+        try { s.updateHitbox(); } catch (_:Dynamic) {}
+    }
+
+    function createSidebar(state:PlayState) {
+        // Cleanup old objects
+        for (label in judgeLabels) if (label != null) label.destroy();
+        for (count in judgeCounts) if (count != null) count.destroy();
+        if (sidebarBG != null) sidebarBG.destroy();
+
+        judgeLabels = [];
+        judgeCounts = [];
+        sidebarBG = null;
+
+        var p = readPrefs();
+        var textSize = SpeculaValueUtil.sizeFromName(p.textsize, 20);
+        var padding = 12;
+        var textWidth = 200;
+        var leftX = 12;
+        if (p.position != null && Std.string(p.position).toLowerCase() == "right") {
+            leftX = Std.int(FlxG.width - textWidth - 12);
+        }
+
+        var textLineSpacing = textSize + 6;
+        var textPosY = Std.int((FlxG.height - (displayed.length * textLineSpacing)) * 0.5);
+        var bgW = textWidth + (padding * 2);
+        var bgH = Std.int(displayed.length * textLineSpacing + (padding * 2));
+        var bgX = leftX - padding;
+        var bgY = textPosY - padding;
+
+        // Background
+        sidebarBG = new FlxSprite(bgX, bgY);
+        drawRoundedBG(
+            sidebarBG,
+            bgW,
+            bgH,
+            SpeculaColorUtil.resolveColor(p.color),
+            Std.int(p.radius)
+        );
+        sidebarBG.alpha = SpeculaValueUtil.alphaFromPercent(p.opacity);
+
+        sidebarBG.scrollFactor.set();
+        sidebarBG.cameras = [state.camHUD];
+        sidebarBG.zIndex = 980;
+        state.add(sidebarBG);
+
+        // Labels + Counts
+        var labelFont:String = tryLoadFont(Std.string(p.font));
+        if (labelFont == null) {
+            trace("[SpeculaJudgmentCounter] Warning: No valid font available during sidebar creation, text will use system defaults");
+        } else {
+            trace("[SpeculaJudgmentCounter] Sidebar created with font: " + Std.string(p.font) + " (" + labelFont + ")");
+        }
+
+        for (i in 0...displayed.length) {
+            var key = displayed[i];
+            var y = textPosY + (i * textLineSpacing);
+            var col = getJudgmentColor(key);
+
+            // Label
+            var label = new FlxText(leftX, y, textWidth, getLabel(key));
+            label.autoSize = false;
+            label.fieldWidth = textWidth;
+            label.size = textSize;
+            label.color = col;
+            label.borderSize = 1;
+
+            if (labelFont != null) {
+                try {
+                    label.setFormat(labelFont, textSize, col, "left", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                    trace("[SpeculaJudgmentCounter] Applied font to label '" + key + "'");
+                } catch (e:Dynamic) {
+                    trace("[SpeculaJudgmentCounter] Failed to set format for label '" + key + "': " + Std.string(e));
+                }
+            }
+
+            label.scrollFactor.set();
+            label.cameras = [state.camHUD];
+            label.zIndex = 982;
+            state.add(label);
+
+            // Count
+            var num = new FlxText(leftX, y, textWidth, Std.string(getTally(key)));
+            num.autoSize = false;
+            num.fieldWidth = textWidth;
+            num.size = textSize;
+            num.color = col;
+            num.borderSize = 1.02;
+
+            if (labelFont != null) {
+                try {
+                    num.setFormat(labelFont, textSize, col, "right", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                    trace("[SpeculaJudgmentCounter] Applied font to count '" + key + "'");
+                } catch (e:Dynamic) {
+                    trace("[SpeculaJudgmentCounter] Failed to set format for count '" + key + "': " + Std.string(e));
+                }
+            }
+
+            num.scrollFactor.set();
+            num.cameras = [state.camHUD];
+            num.zIndex = 981;
+            state.add(num);
+
+            judgeLabels.push(label);
+            judgeCounts.push(num);
+        }
+    }
+
+    var lastFont:String = "";
+    var lastSize:Int = -1;
+    var lastAppliedFontPath:String = null;
+
+    function applyFonts(fontId:String, size:Int)
+    {
+        if (fontId == lastFont && size == lastSize) return;
+
+        var fontPath:String = tryLoadFont(fontId);
+
+        // Only update if font path is valid AND different from last applied
+        if (fontPath == null) {
+            trace("[SpeculaJudgmentCounter] Skipping font apply - no valid font path available");
+            return;
+        }
+
+        lastFont = fontId;
+        lastSize = size;
+        lastAppliedFontPath = fontPath;
+
+        var successCount:Int = 0;
+        var failureCount:Int = 0;
+
+        for (lbl in judgeLabels) {
+            if (lbl == null) continue;
+            try {
+                lbl.setFormat(fontPath, size, lbl.color, "left", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                successCount++;
+            } catch (e:Dynamic) {
+                trace("[SpeculaJudgmentCounter] Failed to apply font to label: " + Std.string(e));
+                failureCount++;
+            }
+        }
+
+        for (num in judgeCounts) {
+            if (num == null) continue;
+            try {
+                num.setFormat(fontPath, size, num.color, "right", FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                successCount++;
+            } catch (e:Dynamic) {
+                trace("[SpeculaJudgmentCounter] Failed to apply font to count: " + Std.string(e));
+                failureCount++;
+            }
+        }
+
+        if (failureCount > 0) {
+            trace("[SpeculaJudgmentCounter] Font application completed with issues. Success: " + successCount + ", Failures: " + failureCount);
+        } else {
+            trace("[SpeculaJudgmentCounter] Font '" + fontId + "' successfully applied to all text elements");
+        }
+    }
+
+    function updateCounts(force:Bool) {
+        var state = PlayState.instance;
+        var p = readPrefs();
+        var textSize = SpeculaValueUtil.sizeFromName(p.textsize, 20);
+
+        for (i in 0...displayed.length) {
+            var key = displayed[i];
+            var value = getTally(key);
+            var old = prevTallies[key];
+            if (old == null || force || old != value) {
+                prevTallies[key] = value;
+                if (judgeCounts[i] != null) judgeCounts[i].text = Std.string(value);
+            }
+        }
+
+        for (i in 0...displayed.length) {
+            var key = displayed[i];
+            var col = getJudgmentColor(key);
+            if (judgeLabels[i] != null) judgeLabels[i].color = col;
+            if (judgeCounts[i] != null) judgeCounts[i].color = col;
+        }
+
+        if (sidebarBG != null) {
+            sidebarBG.visible = p.visible;
+            drawRoundedBG(sidebarBG, Std.int(sidebarBG.width), Std.int(sidebarBG.height), SpeculaColorUtil.resolveColor(p.color), Std.int(p.radius));
+            sidebarBG.alpha = SpeculaValueUtil.alphaFromPercent(p.opacity);
+        }
+
+        applyFonts(Std.string(p.font), textSize);
+
+        for (lbl in judgeLabels) if (lbl != null) lbl.visible = p.visible;
+        for (num in judgeCounts) if (num != null) num.visible = p.visible;
+    }
+
+    override function onUpdate(e) {
+        super.onUpdate(e);
+        if (!loaded) return;
+        updateCounts(false);
+    }
+
+    function onNoteHit(event:Dynamic):Void {
+        if (!bopEnabled || !loaded || judgeLabels.length == 0) return;
+
+        var judgment:String = null;
+        try {
+            judgment = Std.string(Reflect.field(event, "judgement")).toLowerCase();
+        } catch (_:Dynamic) {
+            return;
+        }
+
+        // Map judgment name to our display key
+        var key:String = switch (judgment) {
+            case "sick": "sick";
+            case "good": "good";
+            case "bad": "bad";
+            case "shit": "shit";
+            case "miss" | "missed": "miss";
+            default: null;
+        };
+
+        if (key == null) return;
+
+        // Find the index of this judgment type
+        var idx = displayed.indexOf(key);
+        if (idx < 0 || idx >= judgeLabels.length) return;
+
+        var label = judgeLabels[idx];
+        if (label == null) return;
+
+        var scale = 1.0 + (bopIntensity * 0.06);
+
+        try { FlxTween.cancelTweensOf(label.scale); } catch (_:Dynamic) {}
+
+        try { label.scale.set(scale, scale); } catch (_:Dynamic) {}
+
+        try {
+            FlxTween.tween(label.scale, { x: 1, y: 1 }, bopDuration);
+        } catch (_:Dynamic) {}
+    }
+
+    function resetPrev() {
+        for (k in displayed) prevTallies[k] = -1;
+    }
+
+    function getLabel(k:String):String {
+        return switch (k) {
+            case "sick": "Sick";
+            case "good": "Good";
+            case "bad": "Bad";
+            case "shit": "Shit";
+            case "miss": "Misses";
+            default: "???";
+        };
+    }
+
+    function cleanup() {
+        // Unregister note hit listener
+        try {
+            if (PlayState.instance != null) {
+                PlayState.instance.removeEventListener("noteHit", onNoteHit);
+            }
+        } catch (_:Dynamic) {}
+
+        // Fade out animations
+        try {
+            if (sidebarBG != null) {
+                SpeculaTransitionUtil.fadeOut(sidebarBG, 0.3);
+            }
+            for (lbl in judgeLabels) {
+                if (lbl != null) {
+                    SpeculaTransitionUtil.fadeOut(lbl, 0.3);
+                }
+            }
+            for (cnt in judgeCounts) {
+                if (cnt != null) {
+                    SpeculaTransitionUtil.fadeOut(cnt, 0.3);
+                }
+            }
+        } catch (_:Dynamic) {}
+
+        for (lbl in judgeLabels) if (lbl != null) lbl.destroy();
+        for (num in judgeCounts) if (num != null) num.destroy();
+        if (sidebarBG != null) sidebarBG.destroy();
+        judgeLabels = [];
+        judgeCounts = [];
+        sidebarBG = null;
+        created = false;
+        loaded = false;
+    }
+
+    override function onDestroy(e) {
+        cleanup();
+        super.onDestroy(e);
+    }
+}

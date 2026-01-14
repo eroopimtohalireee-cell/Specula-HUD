@@ -1,0 +1,103 @@
+import funkin.audio.FunkinSound;
+import funkin.play.PauseSubState;
+import funkin.play.PlayState;
+import funkin.ui.options.OptionsState;
+import funkin.modding.ModStore;
+import funkin.modding.events.ScriptEvent;
+import funkin.modding.module.ScriptedModule;
+import funkin.util.ReflectUtil;
+
+import flixel.FlxG;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+
+class PauseMenuPreferences extends ScriptedModule
+{
+
+    var isChartingState:Bool = false;
+    var stateParams:PlayStateParams;
+    var currentSongId:String;
+
+    var speculaWasPaused(get, set):Bool;
+
+    function set_speculaWasPaused(value:Bool) { ModStore.stores.set("speculaWasPaused", value); }
+
+    function get_speculaWasPaused():Bool { return ModStore.get("speculaWasPaused"); }
+
+    function new()
+    {
+        super("PauseMenuPreferences");
+    }
+
+    override function onCreate(event:ScriptEvent) {
+        // Check if "Preferences" already exists in either menu array
+        var existsInStandard = false;
+        var existsInCharting = false;
+
+        for (entry in PauseSubState.PAUSE_MENU_ENTRIES_STANDARD) {
+            if (entry.text == "Preferences") {
+                existsInStandard = true;
+                break;
+            }
+        }
+
+        for (entry in PauseSubState.PAUSE_MENU_ENTRIES_CHARTING) {
+            if (entry.text == "Preferences") {
+                existsInCharting = true;
+                break;
+            }
+        }
+
+        // Only add to STANDARD if it doesn't exist
+        if (!existsInStandard) {
+            PauseSubState.PAUSE_MENU_ENTRIES_STANDARD.insert(PauseSubState.PAUSE_MENU_ENTRIES_STANDARD.length - 1, { text: "Preferences", callback: openPreferencesCallback });
+        }
+
+        // Only add to CHARTING if it doesn't exist
+        if (!existsInCharting) {
+            PauseSubState.PAUSE_MENU_ENTRIES_CHARTING.insert(PauseSubState.PAUSE_MENU_ENTRIES_CHARTING.length - 1, { text: "Preferences", callback: openPreferencesCallback });
+        }
+
+        ModStore.register("speculaWasPaused", false);
+    }
+
+    override function onSongLoaded(event:ScriptEvent) {
+        if (PlayState.instance == null) return;
+        stateParams = PlayState.instance.lastParams;
+        isChartingState = PlayState.instance.isChartingMode;
+        currentSongId = PlayState.instance.currentSong.id;
+    }
+
+    override function onStateChangeEnd(event:ScriptEvent) {
+        if (!(event.targetState is OptionsState)) return;
+        if (speculaWasPaused) FunkinSound.playMusic('chartEditorLoop', {
+            overrideExisting: true,
+            restartTrack: true,
+            persist: true
+        });
+    }
+
+    override function onSubStateOpenBegin(event:ScriptEvent) {
+        if (event.targetState == PlayState.instance) return;
+        if (!speculaWasPaused) return;
+        if (isChartingState) {
+            FlxG.switchState(() -> new PlayState(stateParams));
+            speculaWasPaused = false;
+            isChartingState = false;
+        } else {
+            FlxG.switchState(() -> new PlayState(stateParams));
+            speculaWasPaused = false;
+        }
+    }
+
+    function openPreferencesCallback(subState:PauseSubState) {
+        if (subState == null) return;
+        speculaWasPaused = true;
+        // Fade out animation
+        for (entry in subState.currentMenuEntries.copy()) {
+            if (entry.text == "Preferences") FlxTween.tween(entry?.sprite, { alpha: 0 }, 0.4, { ease: FlxEase.quadOut });
+            else entry?.sprite.visible = false;
+        }
+        FlxG.camera.fade(0xFF000000, 0.4, false, () -> FlxG.switchState(() -> new OptionsState()));
+    }
+}

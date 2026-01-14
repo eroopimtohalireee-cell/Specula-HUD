@@ -1,0 +1,431 @@
+package speculahud;
+
+import funkin.play.PlayState;
+import funkin.modding.module.Module;
+import funkin.modding.events.StateChangeScriptEvent;
+import funkin.save.Save;
+import funkin.ui.options.OptionsState;
+import funkin.ui.options.PreferencesMenu;
+
+import flixel.FlxSprite;
+import flixel.FlxG;
+
+import Reflect;
+import Std;
+
+class SpeculaScoreBarOptions extends Module
+{
+
+    var save:Save;
+    var prefs:Dynamic;
+
+    // store references so we can toggle them
+    var controlledItems:Array<Dynamic>;
+
+    public function new()
+    {
+        super("SpeculaScoreBarOptions", 50);
+
+        save = Save.instance;
+        controlledItems = [];
+
+        // Ensure save.data exists
+        if (save.data == null) {
+            save.data = {};
+        }
+
+        // Create options container if missing
+        try {
+            if (save.data.SpeculaScoreBarOptions == null) {
+                save.data.SpeculaScoreBarOptions = {
+                    showScoreBar: true,
+                    scoreBarColor: "Black",
+                    scoreBarOpacity: 50,
+                    scoreBarTextSize: "Medium",
+                    scoreBarCornerRadius: 15,
+                    scoreBarFont: "Roboto-Bold",
+                    scoreBarBop: true,
+                    scoreBarBopIntensity: 1.0,
+                    scoreBarPosition: "Top",
+                    scoreBarMode: "Full"
+                };
+            }
+        } catch (_:Dynamic) {}
+
+        try {
+            prefs = save.data.SpeculaScoreBarOptions;
+        } catch (_:Dynamic) {
+            prefs = null;
+        }
+
+        try {
+            save.flush();
+        } catch (_:Dynamic) {}
+
+        if (prefs != null) {
+            if (prefs.scoreBarBop == null)
+                prefs.scoreBarBop = true;
+
+            if (prefs.scoreBarBopIntensity == null)
+                prefs.scoreBarBopIntensity = 1.0;
+
+            if (prefs.scoreBarCornerRadius == null)
+                prefs.scoreBarCornerRadius = 15;
+        }
+    }
+
+    /**
+     * Wraps creation of a preference item.
+     * - createFn: a zero-arg function that will call preferencesMenu.createPrefItemX(...)
+     * - returns the "base item" (the actual preferenceItems entry captured after creation) or null.
+     *
+     * Behavior:
+     * - Calls createFn() (which is expected to append an item to preferencesMenu.preferenceItems).
+     * - Finds the last preferenceItems entry and creates an overlay sprite on top of it.
+     * - Saves { base:item, overlay:overlay } to controlledItems for toggling later.
+     */
+    function createPrefItemControlled(preferencesMenu:PreferencesMenu, createFn:Void->Dynamic):Dynamic
+    {
+        if (preferencesMenu == null) return null;
+
+        try {
+            // count before
+            var before = 0;
+            try { before = Std.int(preferencesMenu.preferenceItems.length); } catch (_:Dynamic) { before = 0; }
+
+            // run the creation function (it should push a new element)
+            try { createFn(); } catch (_:Dynamic) {}
+
+            // find last element (newly created)
+            var after = 0;
+            try { after = Std.int(preferencesMenu.preferenceItems.length); } catch (_:Dynamic) { after = before; }
+
+            var idx = Math.max(0, after - 1);
+            var base:Dynamic = null;
+            try { base = preferencesMenu.preferenceItems[idx]; } catch (_:Dynamic) { base = null; }
+
+            // create overlay that will gray-out + intercept clicks
+            var overlay:FlxSprite = null;
+            try {
+                if (base != null) {
+                    // attempt to read bounds from base; fallbacks used if not available
+                    var bx:Float = 0;
+                    var by:Float = 0;
+                    var bw:Float = 0;
+                    var bh:Float = 0;
+
+                    try { bx = (base.x == null) ? 0 : base.x; } catch (_:Dynamic) { bx = 0; }
+                    try { by = (base.y == null) ? 0 : base.y; } catch (_:Dynamic) { by = 0; }
+                    try { bw = (base.width == null) ? 400 : base.width; } catch (_:Dynamic) { bw = 400; }
+                    try { bh = (base.height == null) ? 40 : base.height; } catch (_:Dynamic) { bh = 40; }
+
+                    overlay = new FlxSprite(bx, by);
+
+                    // semi-transparent black (ARGB). If your build complains, wrap value with cast:Int.
+                    try {
+                        overlay.makeGraphic(Std.int(bw), Std.int(bh), 0x88000000);
+                    } catch (_:Dynamic) {
+                        // fallback to fully transparent graphic if makeGraphic fails
+                        try { overlay.makeGraphic(Std.int(bw), Std.int(bh), 0x00000000); } catch (_:Dynamic) {}
+                    }
+
+                    // place overlay after the base so it draws on top
+                    overlay.visible = false; // start disabled
+                    overlay.exists = true;
+
+                    // set overlay to a very high scroll factor to avoid it moving with world if needed
+                    try { overlay.scrollFactor.set(0, 0); } catch (_:Dynamic) {}
+
+                    try { preferencesMenu.preferenceItems.add(overlay); } catch (_:Dynamic) {}
+                }
+            } catch (_:Dynamic) {
+                overlay = null;
+            }
+
+            // record for later toggling
+            controlledItems.push({ base: base, overlay: overlay });
+            return base;
+        } catch (_:Dynamic) {
+            return null;
+        }
+    }
+
+    /**
+     * Toggle all controlled items on/off.
+     * When disabled: overlay.visible = true (blocks input) and overlay.alpha visible (grays out).
+     * When enabled: overlay.visible = false (restores interactivity).
+     */
+    function setScoreBarItemsEnabled(enabled:Bool):Void
+    {
+        try {
+            var showOverlay:Bool = !enabled;
+            for (entry in controlledItems) {
+                if (entry == null) continue;
+
+                // If overlay exists, toggle it
+                try {
+                    if (entry.overlay != null) {
+                        entry.overlay.visible = showOverlay;
+                        // ensure the overlay sits on top visually; if your engine uses depth, you may need to adjust
+                        try { entry.overlay.exists = showOverlay || true; } catch (_:Dynamic) {}
+                    }
+                } catch (_:Dynamic) {}
+
+                // attempt to also set base alpha/active to reinforce the visual change
+                try {
+                    if (entry.base != null) {
+                        // alpha the base to a lighter value when disabled (so text/icons appear faded)
+                        entry.base.alpha = enabled ? 1.0 : 0.35;
+                        // If the base supports an 'active' flag, set it
+                        try { entry.base.active = enabled; } catch (_:Dynamic) {}
+                        try { entry.base.visible = true; } catch (_:Dynamic) {}
+                    }
+                } catch (_:Dynamic) {}
+            }
+        } catch (_:Dynamic) {}
+    }
+
+    function createPrefItemsHeader(preferencesMenu:PreferencesMenu, headerName:String, headerDesc:String, yOffset:Int = 0):Void
+    {
+        if (preferencesMenu == null) return;
+
+        preferencesMenu.items.createItem(
+            10,
+            (120 * preferencesMenu.items.length) + 30 + yOffset,
+            headerName,
+            "bold",
+            function() {},
+            true
+        );
+
+        try {
+            var spacer = new FlxSprite();
+            spacer.makeGraphic(0, 0, 0x00000000);
+            preferencesMenu.preferenceItems.add(spacer);
+        } catch (_:Dynamic) {}
+
+        try { preferencesMenu.preferenceDesc.push(headerDesc); } catch (_:Dynamic) {}
+    }
+
+    override function onStateChangeEnd(event:StateChangeScriptEvent):Void
+    {
+        super.onStateChangeEnd(event);
+
+        if (!Std.isOfType(event.targetState, OptionsState)) return;
+
+        var preferencesMenu:PreferencesMenu = null;
+        try {
+            preferencesMenu = event.targetState.optionsCodex.pages.get("preferences");
+        } catch (_:Dynamic) {}
+
+        if (preferencesMenu == null) return;
+
+
+        // -------------------------
+        // RESET STATE
+        // -------------------------
+        controlledItems = [];
+
+        try {
+            prefs = Reflect.field(Reflect.field(save, "data"), "SpeculaScoreBarOptions");
+        } catch (_:Dynamic) {
+            prefs = null;
+        }
+
+        // -------------------------
+        // OPTIONS UI
+        // -------------------------
+        createPrefItemsHeader(preferencesMenu, "- Score Bar -", "Customize the score bar appearance.", 10);
+
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemEnum(
+                "Score Bar Mode",
+                "Choose how the score bar is displayed.",
+                [
+                    "Full" => "Full",
+                    "Text" => "Text",
+                    "Off" => "Off"
+                ],
+                function(_:Dynamic, value:String):Void {
+                    prefs.scoreBarMode = value;
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                prefs.scoreBarMode
+            );
+        });
+
+
+        // === COLOR ===
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemEnum(
+                "Background Color",
+                "Choose the background color of the score bar.",
+                [
+                    "Black"         =>       "Black",
+                    "Blue"          =>        "Blue",
+                    "Purple"        =>      "Purple",
+                    "Gold"          =>        "Gold",
+                    "White"         =>       "White",
+                    "Orange"        =>      "Orange",
+                    "Red"           =>         "Red",
+                    "Green"         =>       "Green",
+                    "Pink"          =>        "Pink",
+                    "Brown"         =>       "Brown",
+                    "Cyan"          =>        "Cyan",
+                    "Magenta"       =>     "Magenta",
+                    "Lime"          =>        "Lime",
+                    "Teal"          =>        "Teal",
+                    "Violet"        =>      "Violet",
+                    //New Colors
+                    "Gray"          =>       "Gray",
+                    "Dark Blue"     =>  "Dark Blue",
+                    "Crimson"       =>    "Crimson",
+                    "Yellow"        =>     "Yellow",
+                    "Mint"          =>       "Mint",
+                    //--Unique Colors--
+                    "Midnight"      =>   "Midnight",
+                    "Rose"          =>       "Rose",
+                    "Aqua"          =>       "Aqua",
+                    "Lavender"      =>   "Lavender",
+                    "Sunset"        =>     "Sunset"
+                ],
+                function(_:Dynamic, value:String):Void {
+                    prefs.scoreBarColor = value;
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                prefs.scoreBarColor
+            );
+        });
+
+        // === OPACITY ===
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemNumber(
+                "Background Opacity",
+                "Change the opacity of the score bar background.",
+                function(value:Float):Void {
+                    prefs.scoreBarOpacity = Std.int(value);
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                function(v:Float):String { return Std.string(v) + "%"; },
+                prefs.scoreBarOpacity,
+                25,      // min
+                100,    // max
+                5,      // step
+                0       // precision/unused placeholder
+            );
+        });
+
+        // === TEXT SIZE ===
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemEnum(
+                "Text Size",
+                "Size of the score bar text.",
+                ["Small" => "Small", "Medium" => "Medium", "Large" => "Large"],
+                function(_:Dynamic, value:String):Void {
+                    prefs.scoreBarTextSize = value;
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                prefs.scoreBarTextSize
+            );
+        });
+
+        // === FONT ===
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemEnum(
+                "Score Bar Font",
+                "Choose the font for the score bar text.",
+                [
+                    "Roboto-Bold"           => "Roboto-Bold",
+                    "Jumps To Winter"       => "Jumps-To-Winter",
+                    "KG Perfect Penmanship" => "KG-Perfect-Penmanship",
+                    "Little Hope"           => "Little-Hope",
+                    "Spicy Sale"            => "Spicy-Sale",
+                    "VCR OSD Mono"          => "VCR",
+                    "A Typewriter For Me"   => "Typewriter",
+                    "DK Crayon Crumble"     => "Crayon",
+                    "Phantommuff"           => "Phantommuff",
+                    "Lapsus Pro"            => "Lapsus-Pro-Bold"
+                ],
+                function(_:Dynamic, value:String):Void {
+                    prefs.scoreBarFont = value;
+                    save.flush();
+                },
+                prefs.scoreBarFont
+            );
+        });
+
+
+        // Enable Bop
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemCheckbox(
+                "Enable Text Bop",
+                "If enabled, the score bar text will bop to the Note Hit.",
+                function(value:Bool):Void {
+                    prefs.scoreBarBop = value;
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                prefs.scoreBarBop
+            );
+        });
+
+        // Bop Intensity
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemNumber(
+                "Bop Intensity",
+                "Adjust the intensity of the score bar bop effect (I don't recommend putting it to Max, I recommend 1.5 to 3.0 ).",
+                function(value:Float):Void {
+                    prefs.scoreBarBopIntensity = value;
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                function(v:Float):String { return Std.string(v); },
+                prefs.scoreBarBopIntensity,
+                0.1,   // min
+                5.0,   // max
+                0.1,   // step
+                2.5    // precision/unused placeholder
+            );
+        });
+
+        // === CORNER RADIUS ===
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemNumber(
+                "Corner Radius",
+                "Rounded corner radius for the score bar background. (0 to 64 pixels)",
+                function(value:Float):Void {
+                    prefs.scoreBarCornerRadius = Std.int(value);
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                function(v:Float):String {
+                    return Std.int(v) + " px";
+                },
+                prefs.scoreBarCornerRadius,
+                0,    // min
+                64,   // max
+                1,    // step
+                0     // precision (unused)
+            );
+        });
+
+        createPrefItemControlled(preferencesMenu, function() {
+            preferencesMenu.createPrefItemEnum(
+                "Score Bar Position",
+                "Place the score bar above or below the health bar.",
+                [
+                    "Top" => "Top",
+                    "Bottom" => "Bottom"
+                ],
+                function(_:Dynamic, value:String):Void {
+                    prefs.scoreBarPosition = value;
+                    try { save.flush(); } catch (_:Dynamic) {}
+                },
+                prefs.scoreBarPosition
+            );
+        });
+
+        // Apply enabled/disabled visuals for controlled items
+        setScoreBarItemsEnabled(prefs.showScoreBar);
+
+        createPrefItemsHeader(preferencesMenu, "- End -", "You have reached the end...", -10);
+    } // end function onStateChangeEnd
+
+} // end class SpeculaScoreBarOptions
