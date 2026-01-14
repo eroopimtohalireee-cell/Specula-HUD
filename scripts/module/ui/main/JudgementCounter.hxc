@@ -40,7 +40,6 @@ class SpeculaJudgmentCounter extends Module {
     var prevTallies:Map<String, Int> = [];
     var prevFontId:String = "";
 
-
     var bopEnabled:Bool = true;
     var bopIntensity:Float = 1.0;
     var bopScale:Float = 1.06;
@@ -539,3 +538,4 @@ class SpeculaJudgmentCounter extends Module {
         super.onDestroy(e);
     }
 }
+
